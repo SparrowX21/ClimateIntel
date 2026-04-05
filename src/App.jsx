@@ -195,7 +195,7 @@ const App = () => {
   const [showDocs, setShowDocs] = useState(false);
   const [activeModel, setActiveModel] = useState('Gemini 1.5 Flash');
   const [hasData, setHasData] = useState(false);
-  const isFirstMount = React.useRef(true);
+
   useEffect(() => {
     fetch('/api/model-info')
       .then(r => r.json())
@@ -211,6 +211,7 @@ const App = () => {
   const handleMapClick = (lat, lng) => {
     setCoords([lat, lng]);
     setLocation(`${lat.toFixed(4)}, ${lng.toFixed(4)}`);
+    fetchMetrics(lat, lng);
   };
 
   const handleWeightChange = (key, value) => {
@@ -260,13 +261,6 @@ const App = () => {
     finally { setAiLoading(false); }
   };
 
-  useEffect(() => {
-    if (isFirstMount.current) {
-      isFirstMount.current = false;
-      return;
-    }
-    fetchMetrics(coords[0], coords[1]);
-  }, [coords]);
 
   useEffect(() => {
     if (!normMetrics) return;
@@ -300,11 +294,14 @@ const App = () => {
   const handleLocationSubmit = (e) => {
     e.preventDefault();
     const loc = location.toLowerCase();
-    if (loc.includes('austin')) setCoords([30.2672, -97.7431]);
-    else if (loc.includes('houston')) setCoords([29.7604, -95.3698]);
-    else if (loc.includes('dallas')) setCoords([32.7767, -96.7970]);
-    else if (loc.includes('el paso')) setCoords([31.7619, -106.4850]);
-    else if (loc.includes('san antonio')) setCoords([29.4241, -98.4936]);
+    let lat = coords[0], lng = coords[1];
+    if (loc.includes('austin'))       { lat = 30.2672; lng = -97.7431; }
+    else if (loc.includes('houston')) { lat = 29.7604; lng = -95.3698; }
+    else if (loc.includes('dallas'))  { lat = 32.7767; lng = -96.7970; }
+    else if (loc.includes('el paso')) { lat = 31.7619; lng = -106.4850; }
+    else if (loc.includes('san antonio')) { lat = 29.4241; lng = -98.4936; }
+    setCoords([lat, lng]);
+    fetchMetrics(lat, lng);
   };
 
   const nlcdLabel = (code) => {
