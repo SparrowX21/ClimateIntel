@@ -1,0 +1,7 @@
+flask
+flask-cors
+earthengine-api
+pandas
+numpy
+google-generativeai
+python-dotenv
