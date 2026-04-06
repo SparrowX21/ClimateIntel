@@ -322,8 +322,8 @@ const App = () => {
       {/* ── Sidebar ─────────────────────────────────────────────── */}
       <aside className="sidebar">
         <div className="sidebar-header">
-          <div className="app-title">Climate Intelligence Platform</div>
-          <div className="app-subtitle">Stress Analytics Dashboard</div>
+          <div className="app-title">ClimateIntel</div>
+          <div className="app-subtitle">Climate Intelligence Platform</div>
           <div className="header-actions">
             <button className="btn-ghost" onClick={() => setShowDocs(true)}>
               <BookOpen size={13}/> Guide
