@@ -275,7 +275,8 @@ def suggest_weights():
         # Determine dominant stressor and reasoning
         is_hot = lst > 35
         is_arid = precip < 450
-        is_urban = lc in [22, 23, 24]
+        is_urban = lc in [23, 24]  # Only medium/high density urban
+        is_suburban = lc == 22  # Low intensity development
         is_degraded = ndvi < 0.2
 
         # Weights
@@ -321,6 +322,20 @@ def suggest_weights():
                 f"**Ecological Stress Analysis:** NDVI of {ndvi} in a developed zone indicates {'minimal green space coverage' if ndvi < 0.3 else 'some retained green infrastructure'}. Biodiversity is constrained by habitat fragmentation and soil sealing. "
                 f"**Urban Density Analysis:** NLCD code {lc} classifies this as {'medium' if lc == 23 else 'high'}-intensity development, characterized by extensive concrete, asphalt, and rooftop coverage. Sprawl expansion compounds stormwater management costs and heating loads. "
                 f"**Weight Rationale:** Urban density receives the highest weight (55%) because the built environment is the primary stressor driving heat, hydrology, and ecological stress at this location."
+            )
+        elif is_suburban:
+            h, w, e, u = 0.25, 0.20, 0.25, 0.30
+            recs = [
+                {"title": "Mixed-Use Development Zoning", "desc": f"NLCD code {lc} indicates low-intensity development. Promote walkable mixed-use neighborhoods to reduce vehicle emissions and heat generation.", "type": "urban"},
+                {"title": "Green Space Integration", "desc": f"NDVI of {ndvi} shows moderate vegetation. Require 20% green space allocation in new developments to maintain ecological balance.", "type": "eco"},
+                {"title": "Stormwater Management", "desc": f"Annual precipitation of {precip:.0f}mm requires decentralized retention systems. Implement rain gardens and bioswales in suburban areas.", "type": "water"},
+            ]
+            reason = (
+                f"**Heat Stress Analysis:** LST of {lst}°C in suburban development shows moderate heat stress with less intense UHI effect than dense urban cores. "
+                f"**Water Stress Analysis:** Precipitation of {precip:.0f}mm/year provides {'adequate' if precip > 600 else 'moderate'} water supply, but increased impervious surfaces from suburban sprawl affect local hydrology. "
+                f"**Ecological Stress Analysis:** NDVI of {ndvi} indicates {'moderate vegetation health' if ndvi > 0.3 else 'stressed vegetation'} in transitioning suburban landscape. "
+                f"**Urban Density Analysis:** NLCD code {lc} represents low-intensity suburban development with moderate impervious surface coverage. Less dense than urban cores but still contributes to sprawl pressure. "
+                f"**Weight Rationale:** Suburban development shows balanced stressors with moderate urban pressure (30%), with ecological and water factors also significant."
             )
         else:
             recs = [
