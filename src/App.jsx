@@ -42,7 +42,7 @@ function DocsModal({ onClose, activeModel }) {
         <div className="docs-header">
           <div>
             <div className="docs-title">Knowledge Base</div>
-            <div className="docs-subtitle">ISMFP Climate Stress Dashboard · Documentation</div>
+            <div className="docs-subtitle">ClimateIntel · Documentation</div>
           </div>
           <button className="docs-close" onClick={onClose}><X size={16} /></button>
         </div>
@@ -103,7 +103,7 @@ function DocsModal({ onClose, activeModel }) {
             <>
               <div className="docs-section-title">Project Overview</div>
               <p className="docs-para">
-                The ISMFP Climate Stress Dashboard is a real-time, AI-augmented decision-support tool designed for urban planners, environmental policy researchers, and government agencies. It provides location-specific multi-dimensional climate vulnerability assessments by integrating satellite remote sensing data with machine learning inference.
+                ClimateIntel is a real-time, AI-augmented decision-support tool designed for urban planners, environmental policy researchers, and government agencies. It provides location-specific multi-dimensional climate vulnerability assessments by integrating satellite remote sensing data with machine learning inference.
               </p>
               <p className="docs-para">
                 The dashboard quantifies four primary stress vectors that define a region's climate resilience: thermal load (Heat), water availability (Water), ecological health (Ecological), and built-environment pressure (Urban Density). These are synthesized into a single Resilience Index score by a Gemini-powered adaptive weighting engine.
