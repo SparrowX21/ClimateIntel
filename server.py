@@ -246,22 +246,22 @@ def suggest_weights():
         
         try:
             response = model.generate_content(prompt)
-        text = response.text.strip()
-        if '```json' in text:
-            text = text.split('```json')[1].split('```')[0].strip()
-        elif '```' in text:
-            text = text.split('```')[1].strip()
+            text = response.text.strip()
+            if '```json' in text:
+                text = text.split('```json')[1].split('```')[0].strip()
+            elif '```' in text:
+                text = text.split('```')[1].strip()
+                
+            result = json.loads(text)
             
-        result = json.loads(text)
-        
-        # Save to cache
-        weights_cache[cache_key] = result
-        return jsonify(result)
-        
-    except Exception as e:
-        import traceback
-        print(f"Gemini API error (Full Traceback):")
-        traceback.print_exc()
+            # Save to cache
+            weights_cache[cache_key] = result
+            return jsonify(result)
+            
+        except Exception as e:
+            import traceback
+            print(f"Gemini API error (Full Traceback):")
+            traceback.print_exc()
         
         # 2. Smart Heuristic Fallback — detailed structured reasoning
         metrics = request.json.get('metrics', {})
