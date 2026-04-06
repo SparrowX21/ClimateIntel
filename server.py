@@ -28,9 +28,9 @@ if GEMINI_API_KEY:
     except Exception as e:
         print(f"Failed to list models: {e}")
     
-    # Prioritize Gemini 2.0 models for higher limits
-    flash_pref = ['models/gemini-2.0-flash-exp', 'models/gemini-2.0-flash', 'models/gemini-1.5-flash']
-    target_model = next((m for m in flash_pref if m in available_models), 'models/gemini-1.5-flash')
+    # Prioritize Gemini 2.5 Flash
+    flash_pref = ['models/gemini-2.5-flash', 'models/gemini-2.0-flash-exp', 'models/gemini-2.0-flash', 'models/gemini-1.5-flash']
+    target_model = next((m for m in flash_pref if m in available_models), 'models/gemini-2.5-flash')
     
     if target_model not in available_models:
         # Final fallback to any available model
