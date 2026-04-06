@@ -218,25 +218,19 @@ def suggest_weights():
         - Annual Precipitation (NASA GLDAS): {metrics['precipitation']:.1f} mm/year
         - USGS NLCD Landcover Code: {metrics['landcover']} ({lc_label})
         
-        Environmental Context Analysis:
-        - Temperature Context: {'EXTREME HEAT' if metrics['lst'] > 38 else 'HIGH HEAT' if metrics['lst'] > 32 else 'MODERATE' if metrics['lst'] > 26 else 'COOL'}
-        - Water Availability: {'SEVERE DROUGHT' if metrics['precipitation'] < 400 else 'ARID' if metrics['precipitation'] < 600 else 'MODERATE' if metrics['precipitation'] < 900 else 'WATER-RICH'}
-        - Vegetation Health: {'BARREN/DEGRADED' if metrics['ndvi'] < 0.2 else 'STRESSED' if metrics['ndvi'] < 0.4 else 'MODERATE' if metrics['ndvi'] < 0.6 else 'HEALTHY/LUSH'}
-        - Urbanization: {'HIGH DENSITY URBAN' if str(metrics['landcover']) in ['23', '24'] else 'SUBURBAN' if str(metrics['landcover']) in ['22'] else 'RURAL/NATURAL' if str(metrics['landcover']) in ['41', '42', '43', '52', '71', '81', '82'] else 'MIXED'}
-        
         Tasks:
-        1. Assign 4 climate stress weights (heat, water, eco, urban) that sum to exactly 1.0, reflecting RELATIVE severity for THIS SPECIFIC LOCATION.
+        1. Analyze the unique environmental conditions at this specific location and assign 4 climate stress weights (heat, water, eco, urban) that sum to exactly 1.0.
         
-        2. Provide 3 specific, targeted policy recommendations with concrete technical details tailored to the identified environmental context.
+        2. Provide 3 specific, targeted policy recommendations with concrete technical details tailored to the identified environmental conditions.
         
         3. Write detailed scientific reasoning for each stress dimension using these EXACT bold headers:
            **Heat Stress Analysis:** (2-3 sentences explaining LST value, UHI risk, thermal burden implications)
            **Water Stress Analysis:** (2-3 sentences explaining precipitation adequacy, aridity risk, supply pressure)
            **Ecological Stress Analysis:** (2-3 sentences explaining NDVI meaning, biodiversity implications, habitat quality)
            **Urban Density Analysis:** (2-3 sentences explaining landcover code meaning, impervious surface effects, sprawl risk)
-           **Weight Rationale:** (1-2 sentences summarizing why these specific weights were chosen given the unique environmental conditions)
+           **Weight Rationale:** (1-2 sentences summarizing why these specific weights were chosen given the unique environmental data)
         
-        CRITICAL: Your weights MUST DIFFERENTIATE between locations. Austin (hot/water-limited) should have different weights than Dallas (urban heat) or Frisco (suburban development).
+        CRITICAL: Each location has unique environmental conditions. Your weights must reflect the specific stressors present at THIS location. Different locations should have different weight distributions based on their actual climate data.
         
         Output ONLY valid JSON:
         {{
