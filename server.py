@@ -42,7 +42,7 @@ else:
     print("Warning: GEMINI_API_KEY not found in environment.")
 
 # Simple In-Memory Cache for AI Weights
-weights_cache = {}
+weights_cache = {}  # Clear cache to force regeneration with new system
 
 # Initialize Earth Engine
 PROJECT_ID = 'my-unique-project-id-1234567'
@@ -193,8 +193,8 @@ def suggest_weights():
         metrics = data.get('metrics')
         loc = data.get('location')
         
-        # 1. Check Cache first
-        cache_key = f"{round(loc['lat'], 3)}_{round(loc['lng'], 3)}"
+        # 1. Check Cache first - more granular caching
+        cache_key = f"{round(loc['lat'], 2)}_{round(loc['lng'], 2)}_{metrics['lst']:.1f}_{metrics['ndvi']:.2f}_{metrics['precipitation']:.0f}_{metrics['landcover']}"
         if cache_key in weights_cache:
             return jsonify(weights_cache[cache_key])
         
@@ -218,17 +218,25 @@ def suggest_weights():
         - Annual Precipitation (NASA GLDAS): {metrics['precipitation']:.1f} mm/year
         - USGS NLCD Landcover Code: {metrics['landcover']} ({lc_label})
         
-        Tasks:
-        1. Assign 4 climate stress weights (heat, water, eco, urban) that sum to exactly 1.0, reflecting relative severity.
+        Environmental Context Analysis:
+        - Temperature Context: {'EXTREME HEAT' if metrics['lst'] > 38 else 'HIGH HEAT' if metrics['lst'] > 32 else 'MODERATE' if metrics['lst'] > 26 else 'COOL'}
+        - Water Availability: {'SEVERE DROUGHT' if metrics['precipitation'] < 400 else 'ARID' if metrics['precipitation'] < 600 else 'MODERATE' if metrics['precipitation'] < 900 else 'WATER-RICH'}
+        - Vegetation Health: {'BARREN/DEGRADED' if metrics['ndvi'] < 0.2 else 'STRESSED' if metrics['ndvi'] < 0.4 else 'MODERATE' if metrics['ndvi'] < 0.6 else 'HEALTHY/LUSH'}
+        - Urbanization: {'HIGH DENSITY URBAN' if str(metrics['landcover']) in ['23', '24'] else 'SUBURBAN' if str(metrics['landcover']) in ['22'] else 'RURAL/NATURAL' if str(metrics['landcover']) in ['41', '42', '43', '52', '71', '81', '82'] else 'MIXED'}
         
-        2. Provide 3 specific, targeted policy recommendations with concrete technical details.
+        Tasks:
+        1. Assign 4 climate stress weights (heat, water, eco, urban) that sum to exactly 1.0, reflecting RELATIVE severity for THIS SPECIFIC LOCATION.
+        
+        2. Provide 3 specific, targeted policy recommendations with concrete technical details tailored to the identified environmental context.
         
         3. Write detailed scientific reasoning for each stress dimension using these EXACT bold headers:
            **Heat Stress Analysis:** (2-3 sentences explaining LST value, UHI risk, thermal burden implications)
            **Water Stress Analysis:** (2-3 sentences explaining precipitation adequacy, aridity risk, supply pressure)
            **Ecological Stress Analysis:** (2-3 sentences explaining NDVI meaning, biodiversity implications, habitat quality)
            **Urban Density Analysis:** (2-3 sentences explaining landcover code meaning, impervious surface effects, sprawl risk)
-           **Weight Rationale:** (1-2 sentences summarizing why these specific weights were chosen given the data)
+           **Weight Rationale:** (1-2 sentences summarizing why these specific weights were chosen given the unique environmental conditions)
+        
+        CRITICAL: Your weights MUST DIFFERENTIATE between locations. Austin (hot/water-limited) should have different weights than Dallas (urban heat) or Frisco (suburban development).
         
         Output ONLY valid JSON:
         {{
