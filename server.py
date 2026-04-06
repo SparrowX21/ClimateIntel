@@ -244,7 +244,13 @@ def suggest_weights():
         }}
         """
         
-        response = model.generate_content(prompt)
+        try:
+            # Temporarily disable Gemini to test fallback
+            raise Exception("Testing fallback system")
+        except:
+            pass  # Continue to fallback system
+            
+            response = model.generate_content(prompt)
         text = response.text.strip()
         if '```json' in text:
             text = text.split('```json')[1].split('```')[0].strip()
