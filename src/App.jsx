@@ -437,7 +437,7 @@ const App = () => {
           <MapEvents onMapClick={handleMapClick}/>
           <TileLayer
             attribution='&copy; CARTO &copy; OpenStreetMap'
-            url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
+            url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
           />
           <Marker position={coords}>
             <Popup>
