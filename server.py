@@ -244,26 +244,25 @@ def suggest_weights():
         }}
         """
         
-        try:
-            response = model.generate_content(prompt)
-            text = response.text.strip()
-            if '```json' in text:
-                text = text.split('```json')[1].split('```')[0].strip()
-            elif '```' in text:
-                text = text.split('```')[1].strip()
-                
-            result = json.loads(text)
+        response = model.generate_content(prompt)
+        text = response.text.strip()
+        if '```json' in text:
+            text = text.split('```json')[1].split('```')[0].strip()
+        elif '```' in text:
+            text = text.split('```')[1].strip()
             
-            # Save to cache
-            weights_cache[cache_key] = result
-            return jsonify(result)
-            
-        except Exception as e:
-            import traceback
-            print(f"Gemini API error (Full Traceback):")
-            traceback.print_exc()
+        result = json.loads(text)
         
-        # 2. Smart Heuristic Fallback — detailed structured reasoning
+        # Save to cache
+        weights_cache[cache_key] = result
+        return jsonify(result)
+            
+    except Exception as e:
+        import traceback
+        print(f"Gemini API error (Full Traceback):")
+        traceback.print_exc()
+        
+        # Continue to fallback system
         metrics = request.json.get('metrics', {})
         lst = metrics.get('lst', 28)
         precip = metrics.get('precipitation', 800)
@@ -357,6 +356,9 @@ def suggest_weights():
             'recommendations': recs,
             'reasoning': reason
         })
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 if __name__ == '__main__':
     app.run(port=5000, debug=True)

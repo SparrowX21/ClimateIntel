@@ -83,9 +83,9 @@ function DocsModal({ onClose, activeModel }) {
 
               <div className="docs-section-title">Score Interpretation</div>
               {[
-                { range:'0.00–0.34', label:'Low Stress', color:'#30a46c', desc:'Favorable environmental conditions. Preventative maintenance and biodiversity protection is advised.' },
-                { range:'0.35–0.64', label:'Moderate Stress', color:'#f5a623', desc:'Significant stressors present. Targeted mitigation and monitoring programs are recommended.' },
-                { range:'0.65–1.00', label:'High Stress', color:'#e5484d', desc:'Severe multi-dimensional stress detected. Immediate policy intervention required across heat, water, ecological, and urban domains.' },
+                { range:'0.00-0.34', label:'Low Stress', color:'#1a5c35', desc:'Minimal climate stress detected. Current conditions are within sustainable thresholds.' },
+                { range:'0.35-0.64', label:'Moderate Stress', color:'#8a5a00', desc:'Significant stressors present. Targeted mitigation and monitoring programs are recommended.' },
+                { range:'0.65-1.00', label:'High Stress', color:'#b02020', desc:'Severe multi-dimensional stress detected. Immediate policy intervention required across heat, water, ecological, and urban domains.' },
               ].map(s => (
                 <div className="score-legend-row" key={s.range} style={{background:`rgba(0,0,0,0.2)`, border:`1px solid ${s.color}22`}}>
                   <div className="score-legend-dot" style={{background:s.color, boxShadow:`0 0 6px ${s.color}`}} />
@@ -272,9 +272,9 @@ const App = () => {
 
   // Score is a STRESS index: higher = more stressed/vulnerable
   const getStatusInfo = (s) => {
-    if (s >= 0.65) return { label:'HIGH STRESS', color:'#e5484d', icon:<ShieldAlert size={14}/> };
-    if (s >= 0.35) return { label:'MODERATE STRESS', color:'#f5a623', icon:<Info size={14}/> };
-    return { label:'LOW STRESS', color:'#30a46c', icon:<Zap size={14}/> };
+    if (s >= 0.65) return { label:'HIGH STRESS', color:'#b02020', icon:<ShieldAlert size={14}/> };
+    if (s >= 0.35) return { label:'MODERATE STRESS', color:'#8a5a00', icon:<Info size={14}/> };
+    return { label:'LOW STRESS', color:'#1a5c35', icon:<Zap size={14}/> };
   };
 
   const getIconForType = (type) => {
@@ -322,7 +322,10 @@ const App = () => {
       {/* ── Sidebar ─────────────────────────────────────────────── */}
       <aside className="sidebar">
         <div className="sidebar-header">
-          <div className="app-title">ClimateIntel</div>
+          <div style={{display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '8px'}}>
+            <div style={{width: '4px', height: '36px', background: '#0a0a0a'}}></div>
+            <div className="app-title">ClimateIntel</div>
+          </div>
           <div className="app-subtitle">Climate Intelligence Platform</div>
           <div className="header-actions">
             <button className="btn-ghost" onClick={() => setShowDocs(true)}>
