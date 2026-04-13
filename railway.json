@@ -1,8 +1,5 @@
 {
   "build": {
     "builder": "NIXPACKS"
-  },
-  "deploy": {
-    "startCommand": "python3 server.py"
   }
 }
