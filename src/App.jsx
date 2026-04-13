@@ -181,6 +181,7 @@ function DocsModal({ onClose, activeModel }) {
 
 // ── Main App ─────────────────────────────────────────────────────────────────
 const App = () => {
+  const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
   const [location, setLocation] = useState('Austin, Texas');
   const [coords, setCoords] = useState([30.2672, -97.7431]);
   const [weights, setWeights] = useState({ heat:0.25, water:0.25, eco:0.25, urban:0.25 });
@@ -197,7 +198,7 @@ const App = () => {
   const [hasData, setHasData] = useState(false);
 
   useEffect(() => {
-    fetch('/api/model-info')
+    fetch(`${API_URL}/api/model-info`)
       .then(r => r.json())
       .then(d => {
         if (d.model) {
@@ -232,7 +233,7 @@ const App = () => {
   const fetchMetrics = async (lat, lng) => {
     setLoading(true); setError(null);
     try {
-      const r = await fetch(`/api/metrics?lat=${lat}&lng=${lng}`);
+      const r = await fetch(`${API_URL}/api/metrics?lat=${lat}&lng=${lng}`);
       const d = await r.json();
       if (d.error) throw new Error(d.error);
       setMetrics(d.metrics);
@@ -249,7 +250,7 @@ const App = () => {
   const fetchAIWeights = async (m, loc) => {
     setAiLoading(true);
     try {
-      const r = await fetch('/api/ai-weights', {
+      const r = await fetch(`${API_URL}/api/ai-weights`, {
         method:'POST', headers:{'Content-Type':'application/json'},
         body: JSON.stringify({ metrics:m, location:loc })
       });
@@ -286,7 +287,7 @@ const App = () => {
     if (!text) return null;
     return text.split('**').map((part, i) =>
       i % 2 === 1
-        ? <strong key={i} style={{color:'#f0f0f0', display:'block', marginTop:'8px', marginBottom:'2px', fontSize:'11px', letterSpacing:'0.04em'}}>{part}</strong>
+        ? <strong key={i} style={{color:'#0a0a0a', display:'block', marginTop:'10px', marginBottom:'4px', fontSize:'16px', letterSpacing:'0.04em', fontWeight:'700'}}>{part}</strong>
         : <span key={i}>{part}</span>
     );
   };
