@@ -65,11 +65,8 @@ try:
     ee.Initialize(project=PROJECT_ID)
     print(f"Earth Engine initialized with project: {PROJECT_ID}")
 except Exception as e:
-    print(f"EE Initialization failed: {e}. Attempting default...")
-    try:
-        ee.Initialize()
-    except:
-        print("EE Initialization completely failed. Please run 'earthengine authenticate' locally.")
+    print(f"EE Initialization failed: {e}. Satellite data will use fallback values.")
+    # Don't crash the server if EE fails - it will use fallback values
 
 @app.route('/api/model-info')
 def model_info():
@@ -184,7 +181,13 @@ def get_metrics():
             }
         })
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        # Return fallback data if EE fails
+        print(f"Metrics endpoint error: {e}")
+        return jsonify({
+            'metrics': {'lst': 25.0, 'ndvi': 0.4, 'precipitation': 800.0, 'landcover': 21},
+            'normalized': {'heat': 0.5, 'water': 0.3, 'eco': 0.2, 'urban': 0.4},
+            'error': f'Earth Engine error: {str(e)} - using demo data'
+        })
 
 @app.route('/api/ai-weights', methods=['POST'])
 def suggest_weights():
