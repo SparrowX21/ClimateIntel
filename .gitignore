@@ -2,6 +2,13 @@
 node_modules/
 jspm_packages/
 
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+venv/
+.venv/
+
 # Build artifacts
 dist/
 dist-ssr/
@@ -22,6 +29,7 @@ yarn-error.log*
 # Editor directories
 .vscode/
 .idea/
+.claude/
 
 # OS files
 .DS_Store

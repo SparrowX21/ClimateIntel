@@ -1,8 +1,7 @@
-flask
-flask-cors
-earthengine-api
-pandas
-numpy
-google-generativeai
-python-dotenv
-xgboost
+flask>=3.0,<4.0
+flask-cors>=4.0,<5.0
+gunicorn>=22.0,<23.0
+earthengine-api>=0.1.400
+google-generativeai>=0.5,<1.0
+python-dotenv>=1.0,<2.0
+xgboost>=2.0,<3.0
