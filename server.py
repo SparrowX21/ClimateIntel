@@ -112,8 +112,10 @@ except Exception as e:
 
 # ── XGBoost Models ───────────────────────────────────────────────────────────
 
+HEAT_MODEL_PATH  = os.getenv('HEAT_MODEL_PATH',  'heat_stress.json')
 WATER_MODEL_PATH = os.getenv('WATER_MODEL_PATH', 'water_stress.json')
-ECO_MODEL_PATH = os.getenv('ECO_MODEL_PATH', 'ecological_stress.json')
+ECO_MODEL_PATH   = os.getenv('ECO_MODEL_PATH',   'ecological_stress.json')
+URBAN_MODEL_PATH = os.getenv('URBAN_MODEL_PATH', 'urban_stress.json')
 
 def load_xgb_model(path):
     if os.path.exists(path):
@@ -122,8 +124,20 @@ def load_xgb_model(path):
         return m
     return None
 
+heat_model  = load_xgb_model(HEAT_MODEL_PATH)
 water_model = load_xgb_model(WATER_MODEL_PATH)
-eco_model = load_xgb_model(ECO_MODEL_PATH)
+eco_model   = load_xgb_model(ECO_MODEL_PATH)
+urban_model = load_xgb_model(URBAN_MODEL_PATH)
+
+_ml_ready = all([heat_model, water_model, eco_model, urban_model])
+print(f"ML models loaded: heat={bool(heat_model)} water={bool(water_model)} "
+      f"eco={bool(eco_model)} urban={bool(urban_model)} → ML mode: {_ml_ready}")
+
+
+def _predict01(model, feats, values):
+    """Run model, clip prediction to [0, 1]."""
+    dmat = xgb.DMatrix([values], feature_names=feats)
+    return float(max(0.0, min(1.0, model.predict(dmat)[0])))
 
 # ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -184,29 +198,37 @@ def get_metrics():
     try:
         point = ee.Geometry.Point([lng, lat])
 
-        lst_collection = ee.ImageCollection('MODIS/006/MOD11A2') \
-            .filterDate('2018-01-01', '2023-12-31') \
+        lst_collection = ee.ImageCollection('MODIS/061/MOD11A2') \
+            .filterDate('2022-01-01', '2022-12-31') \
             .select('LST_Day_1km')
         lst_mean = lst_collection.mean().reduceRegion(
             reducer=ee.Reducer.mean(), geometry=point, scale=1000
         ).get('LST_Day_1km')
         lst_val = ee.Number(lst_mean).multiply(0.02).subtract(273.15).getInfo() if lst_mean else 25.0
 
-        ndvi_collection = ee.ImageCollection('MODIS/006/MOD13Q1') \
-            .filterDate('2018-01-01', '2023-12-31') \
+        ndvi_collection = ee.ImageCollection('MODIS/061/MOD13Q1') \
+            .filterDate('2022-01-01', '2022-12-31') \
             .select('NDVI')
         ndvi_mean = ndvi_collection.mean().reduceRegion(
             reducer=ee.Reducer.mean(), geometry=point, scale=250
         ).get('NDVI')
         ndvi_val = ee.Number(ndvi_mean).multiply(0.0001).getInfo() if ndvi_mean else 0.4
 
-        gldas = ee.ImageCollection('NASA/GLDAS/V021/NOAH/G025/T3H') \
-            .filterDate('2018-01-01', '2021-12-31')
-        prec_rate_obj = gldas.select('Rainf_tavg').mean().reduceRegion(
-            reducer=ee.Reducer.mean(), geometry=point, scale=27830
-        ).get('Rainf_tavg')
-        precip_rate = ee.Number(prec_rate_obj).getInfo() if prec_rate_obj else 0.0
-        annual_precip = precip_rate * (365.25 * 24 * 3600)
+        tc = ee.ImageCollection('IDAHO_EPSCOR/TERRACLIMATE') \
+            .filterDate('2022-01-01', '2022-12-31')
+
+        precip_obj = tc.select('pr').sum().reduceRegion(
+            reducer=ee.Reducer.mean(), geometry=point, scale=4638
+        ).get('pr')
+        annual_precip = ee.Number(precip_obj).getInfo() if precip_obj else 800.0
+
+        try:
+            vpd_obj = tc.select('vpd').mean().reduceRegion(
+                reducer=ee.Reducer.mean(), geometry=point, scale=4638
+            ).get('vpd')
+            humidity_val = ee.Number(vpd_obj).getInfo() if vpd_obj else 1.0
+        except Exception:
+            humidity_val = 1.0
 
         nlcd_2021 = ee.Image('USGS/NLCD_RELEASES/2021_REL/NLCD/2021').select('landcover')
         landcover_val = nlcd_2021.reduceRegion(
@@ -214,29 +236,37 @@ def get_metrics():
         ).get('landcover')
         lc_numeric = ee.Number(landcover_val).getInfo() if landcover_val else 11
 
-        humidity_val = 45.0
-        developed_mask_val = 1 if lc_numeric in [21, 22, 23, 24] else 0
+        # GPW population density (people/km²)
+        try:
+            pop_img = ee.ImageCollection('CIESIN/GPWv411/GPW_Population_Density').first().select('population_density')
+            pop_obj = pop_img.reduceRegion(
+                reducer=ee.Reducer.mean(), geometry=point, scale=1000
+            ).get('population_density')
+            pop_density = ee.Number(pop_obj).getInfo() if pop_obj else 0.0
+        except Exception:
+            pop_density = 0.0
 
-        if water_model:
-            dmat = xgb.DMatrix([[lst_val, humidity_val, lc_numeric]],
-                               feature_names=['LST_Celsius', 'Relative_Humidity', 'landcover'])
-            raw_water_stress = float(water_model.predict(dmat)[0])
+        source = 'ml'
+        if _ml_ready:
+            norm_heat  = _predict01(heat_model,
+                ['NDVI', 'Humidity', 'Precip', 'Landcover'],
+                [ndvi_val, humidity_val, annual_precip, lc_numeric])
+            norm_water = _predict01(water_model,
+                ['LST', 'Humidity', 'NDVI', 'Landcover'],
+                [lst_val, humidity_val, ndvi_val, lc_numeric])
+            norm_eco   = _predict01(eco_model,
+                ['LST', 'Precip', 'Humidity', 'Landcover'],
+                [lst_val, annual_precip, humidity_val, lc_numeric])
+            norm_urban = _predict01(urban_model,
+                ['LST', 'NDVI', 'Precip', 'Humidity', 'PopDensity'],
+                [lst_val, ndvi_val, annual_precip, humidity_val, pop_density])
         else:
-            raw_water_stress = (800 - annual_precip) if annual_precip else 300.0
-
-        if eco_model:
-            dmat = xgb.DMatrix([[lst_val, ndvi_val, developed_mask_val, raw_water_stress]],
-                               feature_names=['LST_Celsius', 'Normalized_NDVI', 'Developed_Land_Mask', 'Conceptual_Water_Stress_Index'])
-            raw_eco_stress = float(eco_model.predict(dmat)[0])
-        else:
-            raw_eco_stress = lst_val + (1 - ndvi_val) + developed_mask_val + (raw_water_stress / 500)
-
-        raw_urban_stress = (lst_val / 40) + (1 - ndvi_val) + (developed_mask_val * 2)
-
-        norm_heat = max(0, min(1, (lst_val - 20) / 25))
-        norm_water = max(0, min(1, (raw_water_stress + 500) / 1500))
-        norm_eco = max(0, min(1, (raw_eco_stress - 25) / 20))
-        norm_urban = max(0, min(1, (raw_urban_stress - 0.5) / 3))
+            source = 'heuristic'
+            developed_mask_val = 1 if lc_numeric in [21, 22, 23, 24] else 0
+            norm_heat  = max(0, min(1, (lst_val - 5) / 40))
+            norm_water = max(0, min(1, 1 - (annual_precip / 1500)))
+            norm_eco   = max(0, min(1, 1 - (ndvi_val / 0.8)))
+            norm_urban = max(0, min(1, {21:0.25, 22:0.5, 23:0.75, 24:1.0}.get(lc_numeric, 0.0)))
 
         result = {
             'location': {'lat': lat, 'lng': lng},
@@ -252,6 +282,7 @@ def get_metrics():
                 'eco': round(norm_eco, 3),
                 'urban': round(norm_urban, 3),
             },
+            'source': source,
         }
 
         metrics_cache.put(ck, result)

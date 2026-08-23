@@ -129,18 +129,18 @@ function DocsModal({ onClose, activeModel }) {
             <>
               <div className="docs-section-title">Project Overview</div>
               <p className="docs-para">
-                ClimateIntel is a real-time, AI-augmented decision-support tool designed for urban planners, environmental policy researchers, and government agencies. It provides location-specific multi-dimensional climate vulnerability assessments by integrating satellite remote sensing data with machine learning inference.
+                ClimateIntel is a real-time decision-support tool for urban planners, environmental researchers, and government agencies. It combines satellite remote sensing with four independent machine-learning models — one per stress dimension — to deliver location-specific climate vulnerability assessments anywhere in the contiguous US.
               </p>
               <p className="docs-para">
-                The dashboard quantifies four primary stress vectors: thermal load (Heat), water availability (Water), ecological health (Ecological), and built-environment pressure (Urban Density). These are synthesized into a single Stress Index by a Gemini-powered adaptive weighting engine.
+                The dashboard quantifies four independent stress vectors — Heat, Water, Ecological, and Urban Density — each predicted by its own XGBoost regressor trained on thousands of CONUS-wide satellite samples. Their outputs (each normalized to 0–1) are combined by a Gemini-driven adaptive weighting engine into a single Stress Index.
               </p>
 
-              <div className="docs-section-title">The Four Stress Dimensions</div>
+              <div className="docs-section-title">The Four ML Models</div>
               {[
-                { icon:<Sun size={16}/>, color:'#f87171', title:'Heat Stress', desc:'Derived from MODIS Land Surface Temperature (LST). Captures the thermal burden on populations and infrastructure, especially amplified by Urban Heat Island (UHI) effects.' },
-                { icon:<Droplets size={16}/>, color:'#60a5fa', title:'Water Stress', desc:'Calculated from NASA GLDAS precipitation rates. Indicates the risk of water scarcity, drought conditions, and strain on municipal water supply.' },
-                { icon:<Leaf size={16}/>, color:'#4ade80', title:'Ecological Stress', desc:'Indexed by MODIS NDVI (Normalized Difference Vegetation Index). Monitors vegetation health, biomass coverage, and biodiversity support capacity.' },
-                { icon:<Building2 size={16}/>, color:'#a78bfa', title:'Urban Density Stress', desc:'Derived from USGS NLCD Landcover classification codes (21-24). Quantifies pressure from impervious surfaces and displacement of natural land.' },
+                { icon:<Sun size={16}/>, color:'#f87171', title:'Heat Model', desc:'XGBoost regressor. Features: NDVI, VPD, precipitation, landcover. Predicts thermal load (LST scaled 5–45°C → 0–1). Deliberately excludes LST from inputs so the model must infer heat from surrounding environmental context.' },
+                { icon:<Droplets size={16}/>, color:'#60a5fa', title:'Water Model', desc:'XGBoost regressor. Features: LST, VPD, NDVI, landcover. Predicts precipitation deficit (0 mm/yr → 1, 1500 mm/yr → 0). Precipitation itself is excluded from inputs — the model learns aridity from surface signals.' },
+                { icon:<Leaf size={16}/>, color:'#4ade80', title:'Ecological Model', desc:'XGBoost regressor. Features: LST, precipitation, VPD, landcover. Predicts inverse vegetation health (low NDVI → high stress). NDVI is excluded so the model must infer vegetation state from climate.' },
+                { icon:<Building2 size={16}/>, color:'#a78bfa', title:'Urban Model', desc:'XGBoost regressor. Features: LST, NDVI, precipitation, VPD, population density (GPW). Predicts developed-land intensity from NLCD codes 21–24 (0.25 → 1.0), grounded by real population counts.' },
               ].map(d => (
                 <div className="data-source-row" key={d.title}>
                   <div style={{color:d.color,flexShrink:0,marginTop:2}}>{d.icon}</div>
@@ -151,24 +151,33 @@ function DocsModal({ onClose, activeModel }) {
                 </div>
               ))}
 
+              <div className="docs-section-title">How the Score Is Built</div>
+              <p className="docs-para">
+                For any selected point, the backend queries five satellite/climate variables from Google Earth Engine, feeds them into each of the four XGBoost models, and clips every prediction to [0, 1]. The final Stress Index is a weighted sum:
+              </p>
+              <div className="docs-callout" style={{fontFamily:'var(--mono)', fontSize:'13px'}}>
+                score = w<sub>heat</sub>·s<sub>heat</sub> + w<sub>water</sub>·s<sub>water</sub> + w<sub>eco</sub>·s<sub>eco</sub> + w<sub>urban</sub>·s<sub>urban</sub>
+              </div>
+
               <div className="docs-section-title">Adaptive AI Weighting</div>
               <p className="docs-para">
-                The platform uses <strong>Google {activeModel}</strong> to analyze satellite metrics and compute optimal adaptive weights for location-specific policy guidance.
+                The weights w<sub>i</sub> are chosen by <strong>Google {activeModel}</strong>, which reviews the raw satellite readings and returns a dimension-specific rationale plus three policy recommendations tailored to the exact conditions at the selected point. You can override any weight manually with the sidebar sliders.
               </p>
               <div className="docs-callout">
-                If Gemini rate limits are reached, a <strong>Smart Heuristic Fallback</strong> engine activates using rule-based logic — ensuring the dashboard is always functional.
+                If Gemini is unavailable or rate-limited, a rule-based heuristic engine takes over so the dashboard remains fully functional. The ML models continue to run either way.
               </div>
             </>
           )}
 
           {activeTab === 'data' && (
             <>
-              <div className="docs-section-title">Satellite Data Sources</div>
+              <div className="docs-section-title">Satellite & Climate Data Sources</div>
               {[
-                { icon:<Database size={16}/>, name:'MODIS MOD11A2 (LST)', desc:'NASA Terra/Aqua satellite. 8-day composite Land Surface Temperature at 1km resolution.' },
-                { icon:<Database size={16}/>, name:'MODIS MOD13Q1 (NDVI)', desc:'16-day composite Normalized Difference Vegetation Index at 250m resolution.' },
-                { icon:<Database size={16}/>, name:'NASA GLDAS 2.1', desc:'Global Land Data Assimilation System. Provides precipitation rate data for water stress scoring.' },
-                { icon:<Database size={16}/>, name:'USGS NLCD 2021', desc:'National Land Cover Database. 30m resolution landcover classification (codes 21-24 = urban).' },
+                { icon:<Database size={16}/>, name:'MODIS MOD11A2 v6.1 (LST)', desc:'NASA Terra satellite. 8-day composite Land Surface Temperature at 1 km resolution. Time-averaged over the 2022 calendar year.' },
+                { icon:<Database size={16}/>, name:'MODIS MOD13Q1 v6.1 (NDVI)', desc:'16-day composite Normalized Difference Vegetation Index at 250 m resolution. Time-averaged over the 2022 calendar year.' },
+                { icon:<Database size={16}/>, name:'TerraClimate (Idaho EPSCoR)', desc:'Monthly climate data at ~4 km. Provides annual precipitation (pr, mm) and vapor pressure deficit (vpd, kPa) — used for water and heat modeling.' },
+                { icon:<Database size={16}/>, name:'USGS NLCD 2021', desc:'National Land Cover Database at 30 m. Landcover classification (codes 21–24 = developed) sampled with a mode reducer.' },
+                { icon:<Database size={16}/>, name:'CIESIN GPW v4.11', desc:'Gridded Population of the World at ~1 km. Population density (people/km²) feeds the urban stress model.' },
               ].map(d => (
                 <div className="data-source-row" key={d.name}>
                   <div className="data-source-icon">{d.icon}</div>
@@ -189,12 +198,19 @@ function DocsModal({ onClose, activeModel }) {
                 ))}
               </div>
 
-              <div className="docs-section-title">AI Engine</div>
+              <div className="docs-section-title">ML & AI Engines</div>
+              <div className="data-source-row">
+                <div className="data-source-icon"><Cpu size={16}/></div>
+                <div>
+                  <div className="data-source-name">XGBoost Stress Regressors (×4)</div>
+                  <div className="data-source-desc">Four independent gradient-boosted regressors trained on ~10,000 CONUS satellite samples. Each predicts a single stress dimension in [0, 1] using engineered features that exclude that dimension's primary driver.</div>
+                </div>
+              </div>
               <div className="data-source-row">
                 <div className="data-source-icon"><Cpu size={16}/></div>
                 <div>
                   <div className="data-source-name">Google Gemini Flash</div>
-                  <div className="data-source-desc">Flash model for weight optimization and policy recommendations. Responses are cached per location to minimize API usage.</div>
+                  <div className="data-source-desc">Assigns adaptive weights across the four ML outputs and generates location-specific policy recommendations. Responses are cached per location to minimize API usage.</div>
                 </div>
               </div>
             </>
