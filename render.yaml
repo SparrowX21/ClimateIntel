@@ -25,7 +25,6 @@ services:
   - type: web
     name: climateintel-web
     runtime: static
-    plan: free
     branch: main
     buildCommand: npm install && npm run build
     staticPublishPath: ./dist
