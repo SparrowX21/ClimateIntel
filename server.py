@@ -483,23 +483,43 @@ def chat():
         })
 
     try:
-        loc = context.get('location') or {}
-        m = context.get('metrics') or {}
-        score = context.get('score')
-        lc_raw = m.get('landcover')
-        try:
-            lc_label = NLCD_NAMES.get(int(lc_raw), '') if lc_raw not in (None, '', 'N/A') else ''
-        except (ValueError, TypeError):
-            lc_label = ''
-
+        compare = context.get('compare')
         ctx_line = ''
-        if loc.get('lat') is not None and m:
+
+        if compare and compare.get('a') and compare.get('b'):
+            def _fmt(pt, label):
+                mm = pt.get('metrics') or {}
+                nn = pt.get('normalized') or {}
+                return (
+                    f"{label}: {pt.get('location','?')} — "
+                    f"Score {pt.get('score','?')}. "
+                    f"LST {mm.get('lst','?')}°C, NDVI {mm.get('ndvi','?')}, "
+                    f"Precip {mm.get('precipitation','?')}mm/yr, NLCD {mm.get('landcover','?')}. "
+                    f"Sub-scores heat={nn.get('heat','?')}, water={nn.get('water','?')}, "
+                    f"eco={nn.get('eco','?')}, urban={nn.get('urban','?')}."
+                )
             ctx_line = (
-                f"Current analysis point: ({loc.get('lat'):.3f}, {loc.get('lng'):.3f}). "
-                f"LST {m.get('lst','?')}°C, NDVI {m.get('ndvi','?')}, "
-                f"Precip {m.get('precipitation','?')}mm/yr, NLCD {m.get('landcover','?')} ({lc_label}). "
-                f"Stress index: {score if score is not None else '?'}.\n\n"
+                "You are helping the user compare two locations side-by-side.\n"
+                f"{_fmt(compare['a'], 'LOCATION A')}\n"
+                f"{_fmt(compare['b'], 'LOCATION B')}\n\n"
             )
+        else:
+            loc = context.get('location') or {}
+            m = context.get('metrics') or {}
+            score = context.get('score')
+            lc_raw = m.get('landcover')
+            try:
+                lc_label = NLCD_NAMES.get(int(lc_raw), '') if lc_raw not in (None, '', 'N/A') else ''
+            except (ValueError, TypeError):
+                lc_label = ''
+
+            if loc.get('lat') is not None and m:
+                ctx_line = (
+                    f"Current analysis point: ({loc.get('lat'):.3f}, {loc.get('lng'):.3f}). "
+                    f"LST {m.get('lst','?')}°C, NDVI {m.get('ndvi','?')}, "
+                    f"Precip {m.get('precipitation','?')}mm/yr, NLCD {m.get('landcover','?')} ({lc_label}). "
+                    f"Stress index: {score if score is not None else '?'}.\n\n"
+                )
 
         prompt = (
             f"You are ClimateIntel's climate science assistant. Answer concisely (2-4 sentences) "

@@ -4,7 +4,8 @@ import {
   MapPin, Info, Zap, RefreshCcw, Activity, Sparkles, Brain,
   Sun, Droplets, Leaf, Building2, Layers, ShieldAlert,
   BookOpen, X, Database, Cpu, Search, Pause, Play, BarChart3,
-  MessageSquare, Send, LogIn, LogOut, User, Clock, History
+  MessageSquare, Send, LogIn, LogOut, User, Clock, History,
+  Share2, GitCompare, Pin
 } from 'lucide-react';
 import 'leaflet/dist/leaflet.css';
 import './App.css';
@@ -269,11 +270,14 @@ function UsagePanel({ usage, onClose }) {
 
 // ── Chat Panel ──────────────────────────────────────────────────────────────
 
-function ChatPanel({ onClose, apiUrl, context, user, preloadMessages }) {
+function ChatPanel({ onClose, apiUrl, context, user, preloadMessages, compareContext }) {
+  const opener = compareContext
+    ? `Comparing two locations:\n\n**A — ${compareContext.a.location}** · score ${compareContext.a.score.toFixed(2)} · LST ${compareContext.a.metrics.lst}°C · NDVI ${compareContext.a.metrics.ndvi} · Precip ${compareContext.a.metrics.precipitation} mm/yr\n\n**B — ${compareContext.b.location}** · score ${compareContext.b.score.toFixed(2)} · LST ${compareContext.b.metrics.lst}°C · NDVI ${compareContext.b.metrics.ndvi} · Precip ${compareContext.b.metrics.precipitation} mm/yr\n\nAsk me anything about how they differ — e.g. "Which is worse for water stress?" or "Explain the temperature gap."`
+    : "Hi! I can answer questions about climate, the satellite data shown here, or the current analysis point. What would you like to know?";
   const [messages, setMessages] = useState(
     preloadMessages && preloadMessages.length
       ? preloadMessages
-      : [{ role: 'assistant', text: "Hi! I can answer questions about climate, the satellite data shown here, or the current analysis point. What would you like to know?" }]
+      : [{ role: 'assistant', text: opener }]
   );
   const [input, setInput] = useState('');
   const [sending, setSending] = useState(false);
@@ -291,12 +295,13 @@ function ChatPanel({ onClose, apiUrl, context, user, preloadMessages }) {
     setInput('');
     setSending(true);
     trackEvent('chat');
-    if (user) saveChatMessage({ userId: user.id, role: 'user', message: text, context });
+    const chatContext = compareContext ? { compare: compareContext } : context;
+    if (user) saveChatMessage({ userId: user.id, role: 'user', message: text, context: chatContext });
     try {
       const r = await fetch(`${apiUrl}/api/chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: text, context }),
+        body: JSON.stringify({ message: text, context: chatContext }),
       });
       const d = await r.json();
       const reply = d.reply || d.error || 'No response.';
@@ -314,8 +319,8 @@ function ChatPanel({ onClose, apiUrl, context, user, preloadMessages }) {
       <div className="docs-panel chat-panel">
         <div className="docs-header">
           <div>
-            <div className="docs-title">Ask ClimateIntel AI</div>
-            <div className="docs-subtitle">Powered by Gemini · Ask about your analysis</div>
+            <div className="docs-title">{compareContext ? 'Compare Locations' : 'Ask ClimateIntel AI'}</div>
+            <div className="docs-subtitle">{compareContext ? `${compareContext.a.location} vs ${compareContext.b.location}` : 'Powered by Gemini · Ask about your analysis'}</div>
           </div>
           <button className="docs-close" onClick={onClose}><X size={16} /></button>
         </div>
@@ -434,6 +439,8 @@ const App = () => {
   const [showHistory, setShowHistory] = useState(false);
   const [chatHistory, setChatHistory] = useState([]);
   const [historyLoading, setHistoryLoading] = useState(false);
+  const [pinned, setPinned] = useState(null);          // {coords, location, metrics, normalized, score}
+  const [shareToast, setShareToast] = useState(null);
   const user = session?.user || null;
 
   useEffect(() => {
@@ -481,6 +488,56 @@ const App = () => {
     setChatHistory(rows);
     setHistoryLoading(false);
   };
+
+  // ── Deep-link: ?lat=..&lng=.. jumps straight to a location ──────
+  useEffect(() => {
+    const q = new URLSearchParams(window.location.search);
+    const la = parseFloat(q.get('lat'));
+    const ln = parseFloat(q.get('lng'));
+    if (Number.isFinite(la) && Number.isFinite(ln) && la >= -90 && la <= 90 && ln >= -180 && ln <= 180) {
+      setCoords([la, ln]);
+      setLocation(`${la.toFixed(4)}, ${ln.toFixed(4)}`);
+      fetchMetrics(la, ln);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const shareLocation = async () => {
+    const url = `${window.location.origin}${window.location.pathname}?lat=${coords[0].toFixed(4)}&lng=${coords[1].toFixed(4)}`;
+    const title = `ClimateIntel — ${location}`;
+    const text = `Climate stress for ${location}: ${score.toFixed(2)} (heat ${(normMetrics.heat*100).toFixed(0)}%, water ${(normMetrics.water*100).toFixed(0)}%, eco ${(normMetrics.eco*100).toFixed(0)}%, urban ${(normMetrics.urban*100).toFixed(0)}%)`;
+    try {
+      if (navigator.share) {
+        await navigator.share({ title, text, url });
+      } else {
+        await navigator.clipboard.writeText(url);
+        setShareToast('Link copied to clipboard');
+        setTimeout(() => setShareToast(null), 2500);
+      }
+    } catch (e) {
+      // user cancelled share sheet — ignore
+    }
+  };
+
+  const pinForCompare = () => {
+    setPinned({
+      coords: [...coords], location, metrics: { ...metrics }, normalized: { ...normMetrics }, score,
+    });
+    setShareToast(`Pinned "${location}" — click another location, then Compare`);
+    setTimeout(() => setShareToast(null), 4000);
+  };
+
+  const startCompare = () => {
+    if (!pinned) return;
+    setShowChat(true);
+  };
+
+  const clearPin = () => setPinned(null);
+
+  const compareContext = pinned ? {
+    a: { location: pinned.location, coords: pinned.coords, metrics: pinned.metrics, normalized: pinned.normalized, score: pinned.score },
+    b: { location, coords: [coords[0], coords[1]], metrics, normalized: normMetrics, score },
+  } : null;
 
   const refreshUsage = useCallback(() => {
     fetch(`${API_URL}/api/usage`)
@@ -829,6 +886,32 @@ const App = () => {
                 <div className="progress-fill" style={{ width:`${score*100}%`, background: score>=0.65 ? 'linear-gradient(90deg,#e5484d,#f97316)' : score>=0.35 ? 'linear-gradient(90deg,#f5a623,#eab308)' : 'linear-gradient(90deg,#30a46c,#34d399)' }}/>
               </div>
 
+              <div className="action-row">
+                <button className="action-btn" onClick={shareLocation} title="Copy shareable link">
+                  <Share2 size={12}/> Share
+                </button>
+                {!pinned ? (
+                  <button className="action-btn" onClick={pinForCompare} title="Pin this location, then click another to compare">
+                    <Pin size={12}/> Pin to compare
+                  </button>
+                ) : pinned.coords[0] === coords[0] && pinned.coords[1] === coords[1] ? (
+                  <button className="action-btn pinned" onClick={clearPin} title="Unpin">
+                    <Pin size={12}/> Pinned · click to unpin
+                  </button>
+                ) : (
+                  <button className="action-btn compare" onClick={startCompare} title={`Compare with ${pinned.location}`}>
+                    <GitCompare size={12}/> Compare with pinned
+                  </button>
+                )}
+              </div>
+
+              {pinned && pinned.coords[0] !== coords[0] && (
+                <div className="pinned-banner">
+                  📍 Pinned: <strong>{pinned.location}</strong> (score {pinned.score.toFixed(2)})
+                  <button className="pinned-clear" onClick={clearPin}><X size={11}/></button>
+                </div>
+              )}
+
               <div className="context-line">
                 Analyzing <strong>{location}</strong>. Weighting optimized by Gemini AI
                 based on real-time satellite environmental thresholds.
@@ -863,8 +946,12 @@ const App = () => {
           onClose={() => setShowChat(false)}
           apiUrl={API_URL}
           context={{ location: { lat: coords[0], lng: coords[1] }, metrics, score }}
+          compareContext={compareContext}
           user={user}
         />
+      )}
+      {shareToast && (
+        <div className="share-toast">{shareToast}</div>
       )}
       {showHistory && (
         <HistoryPanel
