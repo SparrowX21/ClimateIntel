@@ -4,10 +4,11 @@ import {
   MapPin, Info, Zap, RefreshCcw, Activity, Sparkles, Brain,
   Sun, Droplets, Leaf, Building2, Layers, ShieldAlert,
   BookOpen, X, Database, Cpu, Search, Pause, Play, BarChart3,
-  MessageSquare, Send
+  MessageSquare, Send, LogIn, LogOut, User, Clock, History
 } from 'lucide-react';
 import 'leaflet/dist/leaflet.css';
 import './App.css';
+import { supabase, supabaseEnabled, trackEvent, saveChatMessage, fetchChatHistory } from './supabase';
 
 import L from 'leaflet';
 import icon from 'leaflet/dist/images/marker-icon.png';
@@ -268,10 +269,12 @@ function UsagePanel({ usage, onClose }) {
 
 // ── Chat Panel ──────────────────────────────────────────────────────────────
 
-function ChatPanel({ onClose, apiUrl, context }) {
-  const [messages, setMessages] = useState([
-    { role: 'assistant', text: "Hi! I can answer questions about climate, the satellite data shown here, or the current analysis point. What would you like to know?" }
-  ]);
+function ChatPanel({ onClose, apiUrl, context, user, preloadMessages }) {
+  const [messages, setMessages] = useState(
+    preloadMessages && preloadMessages.length
+      ? preloadMessages
+      : [{ role: 'assistant', text: "Hi! I can answer questions about climate, the satellite data shown here, or the current analysis point. What would you like to know?" }]
+  );
   const [input, setInput] = useState('');
   const [sending, setSending] = useState(false);
   const scrollRef = useRef(null);
@@ -287,6 +290,8 @@ function ChatPanel({ onClose, apiUrl, context }) {
     setMessages(m => [...m, { role: 'user', text }]);
     setInput('');
     setSending(true);
+    trackEvent('chat');
+    if (user) saveChatMessage({ userId: user.id, role: 'user', message: text, context });
     try {
       const r = await fetch(`${apiUrl}/api/chat`, {
         method: 'POST',
@@ -294,7 +299,9 @@ function ChatPanel({ onClose, apiUrl, context }) {
         body: JSON.stringify({ message: text, context }),
       });
       const d = await r.json();
-      setMessages(m => [...m, { role: 'assistant', text: d.reply || d.error || 'No response.' }]);
+      const reply = d.reply || d.error || 'No response.';
+      setMessages(m => [...m, { role: 'assistant', text: reply }]);
+      if (user) saveChatMessage({ userId: user.id, role: 'assistant', message: reply, context });
     } catch (err) {
       setMessages(m => [...m, { role: 'assistant', text: 'Network error — check that the backend is running.' }]);
     } finally {
@@ -345,6 +352,60 @@ function ChatPanel({ onClose, apiUrl, context }) {
   );
 }
 
+// ── History Panel ───────────────────────────────────────────────────────────
+
+function HistoryPanel({ onClose, chats, loading }) {
+  const grouped = React.useMemo(() => {
+    const map = new Map();
+    for (const c of chats) {
+      const d = new Date(c.created_at);
+      const key = d.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
+      if (!map.has(key)) map.set(key, []);
+      map.get(key).push(c);
+    }
+    return Array.from(map.entries());
+  }, [chats]);
+
+  return (
+    <div className="docs-overlay" onClick={(e) => e.target === e.currentTarget && onClose()}>
+      <div className="docs-panel" style={{ width: 480, height: 'calc(100vh - 36px)', display: 'flex', flexDirection: 'column' }}>
+        <div className="docs-header">
+          <div>
+            <div className="docs-title">Chat History</div>
+            <div className="docs-subtitle">{chats.length} messages · synced across devices</div>
+          </div>
+          <button className="docs-close" onClick={onClose}><X size={16} /></button>
+        </div>
+        <div className="docs-body" style={{ flex: 1, overflowY: 'auto' }}>
+          {loading ? (
+            <div className="loading-state"><RefreshCcw className="animate-spin" size={24} /><p>Loading…</p></div>
+          ) : chats.length === 0 ? (
+            <div className="loading-state">
+              <MessageSquare size={28} color="#888" />
+              <p>No chats yet.</p>
+              <p style={{ color: 'var(--text-muted)', fontSize: 11 }}>Open "Ask AI" and start a conversation — it'll be saved here.</p>
+            </div>
+          ) : (
+            grouped.map(([day, msgs]) => (
+              <div key={day} style={{ marginBottom: 20 }}>
+                <div className="docs-section-title" style={{ fontSize: 12, marginBottom: 8 }}>
+                  <Clock size={11} style={{ marginRight: 6 }} /> {day}
+                </div>
+                {msgs.map(m => (
+                  <div key={m.id} className={`chat-bubble chat-${m.role}`} style={{ marginBottom: 6 }}>
+                    <div className="chat-role">{m.role === 'user' ? 'You' : 'AI'} · {new Date(m.created_at).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}</div>
+                    <div className="chat-text">{m.message}</div>
+                  </div>
+                ))}
+              </div>
+            ))
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Main App ────────────────────────────────────────────────────────────────
 
 const App = () => {
@@ -369,6 +430,11 @@ const App = () => {
   const [hasData, setHasData] = useState(false);
   const [paused, setPaused] = useState(false);
   const [usage, setUsage] = useState({ metrics_calls: 0, ai_calls: 0, cache_hits: 0, tokens_saved: 0 });
+  const [session, setSession] = useState(null);
+  const [showHistory, setShowHistory] = useState(false);
+  const [chatHistory, setChatHistory] = useState([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const user = session?.user || null;
 
   useEffect(() => {
     fetch(`${API_URL}/api/model-info`)
@@ -381,6 +447,40 @@ const App = () => {
       })
       .catch(() => {});
   }, [API_URL]);
+
+  // ── Auth session + visit tracking ──────────────────────────────
+  useEffect(() => {
+    if (!supabaseEnabled) return;
+    trackEvent('visit');
+    supabase.auth.getSession().then(({ data }) => setSession(data.session));
+    const { data: listener } = supabase.auth.onAuthStateChange((_e, s) => {
+      setSession(s);
+      if (_e === 'SIGNED_IN') trackEvent('signup');
+    });
+    return () => listener.subscription.unsubscribe();
+  }, []);
+
+  const signInWithGoogle = async () => {
+    if (!supabaseEnabled) return alert('Sign-in is not configured yet.');
+    await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: { redirectTo: window.location.origin },
+    });
+  };
+
+  const signOut = async () => {
+    if (!supabaseEnabled) return;
+    await supabase.auth.signOut();
+    setChatHistory([]);
+  };
+
+  const loadHistory = async () => {
+    if (!user) return;
+    setHistoryLoading(true);
+    const rows = await fetchChatHistory(user.id);
+    setChatHistory(rows);
+    setHistoryLoading(false);
+  };
 
   const refreshUsage = useCallback(() => {
     fetch(`${API_URL}/api/usage`)
@@ -414,6 +514,7 @@ const App = () => {
   const fetchMetrics = async (lat, lng) => {
     setLoading(true);
     setError(null);
+    trackEvent('analysis');
     try {
       const r = await fetch(`${API_URL}/api/metrics?lat=${lat}&lng=${lng}`);
       const d = await r.json();
@@ -528,9 +629,16 @@ const App = () => {
                 <BarChart3 size={13}/> Usage
               </button>
             </div>
-            <button className="btn-ghost" onClick={() => setShowChat(true)}>
-              <MessageSquare size={13}/> Ask AI
-            </button>
+            <div style={{display: 'flex', gap: '6px'}}>
+              <button className="btn-ghost" onClick={() => setShowChat(true)} style={{flex: user ? 1 : undefined, width: user ? 'auto' : '100%'}}>
+                <MessageSquare size={13}/> Ask AI
+              </button>
+              {user && (
+                <button className="btn-ghost" onClick={() => { loadHistory(); setShowHistory(true); }} style={{flex: 1}} title="Your previous chats">
+                  <History size={13}/> History
+                </button>
+              )}
+            </div>
             <div style={{display: 'flex', gap: '6px'}}>
               <button
                 className={paused ? 'btn-primary' : 'btn-ghost'}
@@ -544,6 +652,17 @@ const App = () => {
                 <RefreshCcw size={13} className={loading ? 'animate-spin' : ''}/> Refresh
               </button>
             </div>
+            {supabaseEnabled && (
+              user ? (
+                <button className="btn-ghost" onClick={signOut} title={user.email || 'Sign out'}>
+                  <LogOut size={13}/> Sign out ({(user.email || '').split('@')[0].slice(0, 12)})
+                </button>
+              ) : (
+                <button className="btn-ghost" onClick={signInWithGoogle}>
+                  <LogIn size={13}/> Sign in with Google
+                </button>
+              )
+            )}
           </div>
         </div>
 
@@ -744,6 +863,14 @@ const App = () => {
           onClose={() => setShowChat(false)}
           apiUrl={API_URL}
           context={{ location: { lat: coords[0], lng: coords[1] }, metrics, score }}
+          user={user}
+        />
+      )}
+      {showHistory && (
+        <HistoryPanel
+          onClose={() => setShowHistory(false)}
+          chats={chatHistory}
+          loading={historyLoading}
         />
       )}
     </div>
