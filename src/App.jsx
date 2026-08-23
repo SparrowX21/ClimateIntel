@@ -5,7 +5,7 @@ import {
   Sun, Droplets, Leaf, Building2, Layers, ShieldAlert,
   BookOpen, X, Database, Cpu, Search, Pause, Play, BarChart3,
   MessageSquare, Send, LogIn, LogOut, User, Clock, History,
-  Share2, GitCompare, Pin
+  Share2, GitCompare, Pin, Map as MapIcon
 } from 'lucide-react';
 import 'leaflet/dist/leaflet.css';
 import './App.css';
@@ -51,6 +51,35 @@ async function geocodeLocation(query) {
     displayName: data[0].display_name,
   };
 }
+
+async function geocodeSuggestions(query, limit = 6) {
+  const url = `https://nominatim.openstreetmap.org/search?format=json&addressdetails=1&limit=${limit}&q=${encodeURIComponent(query)}`;
+  const res = await fetch(url, {
+    headers: {
+      'Accept': 'application/json',
+      'User-Agent': 'ClimateIntel/1.0 (climate-intel-webapp)',
+    },
+  });
+  if (!res.ok) return [];
+  const data = await res.json();
+  return data.map(d => ({
+    lat: parseFloat(d.lat),
+    lng: parseFloat(d.lon),
+    label: d.display_name,
+    type: d.type,
+    className: d.class,
+  }));
+}
+
+// ── Map tile layers ─────────────────────────────────────────────────────────
+
+const MAP_STYLES = {
+  light:     { name: 'Light',     url: 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',                    attribution: '&copy; CARTO &copy; OpenStreetMap' },
+  streets:   { name: 'Streets',   url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',                                attribution: '&copy; OpenStreetMap contributors' },
+  satellite: { name: 'Satellite', url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', attribution: 'Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX' },
+  terrain:   { name: 'Terrain',   url: 'https://tile.opentopomap.org/{z}/{x}/{y}.png',                                     attribution: 'Map data: &copy; OpenStreetMap, SRTM | Style: &copy; OpenTopoMap (CC-BY-SA)' },
+  dark:      { name: 'Dark',      url: 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',                     attribution: '&copy; CARTO &copy; OpenStreetMap' },
+};
 
 // ── Documentation Modal ─────────────────────────────────────────────────────
 
@@ -441,6 +470,12 @@ const App = () => {
   const [historyLoading, setHistoryLoading] = useState(false);
   const [pinned, setPinned] = useState(null);          // {coords, location, metrics, normalized, score}
   const [shareToast, setShareToast] = useState(null);
+  const [mapStyle, setMapStyle] = useState(() => localStorage.getItem('ci_map_style') || 'light');
+  const [styleMenuOpen, setStyleMenuOpen] = useState(false);
+  const [suggestions, setSuggestions] = useState([]);
+  const [suggestOpen, setSuggestOpen] = useState(false);
+  const [suggestIdx, setSuggestIdx] = useState(-1);
+  const suggestTimer = useRef(null);
   const user = session?.user || null;
 
   useEffect(() => {
@@ -533,6 +568,44 @@ const App = () => {
   };
 
   const clearPin = () => setPinned(null);
+
+  // ── Search suggestions (debounced) ──────────────────────────────
+  const handleLocationInput = (e) => {
+    const value = e.target.value;
+    setLocation(value);
+    setSuggestIdx(-1);
+    if (suggestTimer.current) clearTimeout(suggestTimer.current);
+    if (!value.trim() || value.trim().length < 2) {
+      setSuggestions([]);
+      setSuggestOpen(false);
+      return;
+    }
+    suggestTimer.current = setTimeout(async () => {
+      const results = await geocodeSuggestions(value.trim());
+      setSuggestions(results);
+      setSuggestOpen(results.length > 0);
+    }, 250);
+  };
+
+  const pickSuggestion = (s) => {
+    setSuggestions([]);
+    setSuggestOpen(false);
+    setSuggestIdx(-1);
+    setCoords([s.lat, s.lng]);
+    setLocation(s.label.split(',').slice(0, 2).join(','));
+    fetchMetrics(s.lat, s.lng);
+  };
+
+  const handleSuggestKey = (e) => {
+    if (!suggestOpen || suggestions.length === 0) return;
+    if (e.key === 'ArrowDown') { e.preventDefault(); setSuggestIdx(i => Math.min(i + 1, suggestions.length - 1)); }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); setSuggestIdx(i => Math.max(i - 1, -1)); }
+    else if (e.key === 'Enter' && suggestIdx >= 0) { e.preventDefault(); pickSuggestion(suggestions[suggestIdx]); }
+    else if (e.key === 'Escape') { setSuggestOpen(false); }
+  };
+
+  // ── Map style persistence ───────────────────────────────────────
+  useEffect(() => { localStorage.setItem('ci_map_style', mapStyle); }, [mapStyle]);
 
   const compareContext = pinned ? {
     a: { location: pinned.location, coords: pinned.coords, metrics: pinned.metrics, normalized: pinned.normalized, score: pinned.score },
@@ -732,14 +805,17 @@ const App = () => {
         )}
 
         {/* Location */}
-        <div className="sidebar-section">
+        <div className="sidebar-section" style={{position:'relative'}}>
           <div className="section-label"><MapPin size={10}/> Location Target</div>
-          <form className="location-form" onSubmit={handleLocationSubmit}>
+          <form className="location-form" onSubmit={handleLocationSubmit} autoComplete="off">
             <input
               className="location-input"
               type="text"
               value={location}
-              onChange={(e) => setLocation(e.target.value)}
+              onChange={handleLocationInput}
+              onKeyDown={handleSuggestKey}
+              onFocus={() => suggestions.length > 0 && setSuggestOpen(true)}
+              onBlur={() => setTimeout(() => setSuggestOpen(false), 150)}
               placeholder="Search any city, address, or place..."
               disabled={paused}
             />
@@ -749,6 +825,24 @@ const App = () => {
           </form>
           {searchError && (
             <div className="search-error">{searchError}</div>
+          )}
+          {suggestOpen && suggestions.length > 0 && (
+            <div className="suggest-list">
+              {suggestions.map((s, i) => (
+                <div
+                  key={i}
+                  className={`suggest-item ${i === suggestIdx ? 'active' : ''}`}
+                  onMouseDown={(e) => { e.preventDefault(); pickSuggestion(s); }}
+                  onMouseEnter={() => setSuggestIdx(i)}
+                >
+                  <MapPin size={11} className="suggest-icon"/>
+                  <div className="suggest-text">
+                    <div className="suggest-primary">{s.label.split(',').slice(0, 2).join(',')}</div>
+                    <div className="suggest-secondary">{s.label.split(',').slice(2).join(',').trim() || s.type}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
           )}
         </div>
 
@@ -839,9 +933,18 @@ const App = () => {
           <ChangeView center={coords} zoom={13}/>
           <MapEvents onMapClick={handleMapClick} paused={paused}/>
           <TileLayer
-            attribution='&copy; CARTO &copy; OpenStreetMap'
-            url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
+            key={mapStyle}
+            attribution={MAP_STYLES[mapStyle].attribution}
+            url={MAP_STYLES[mapStyle].url}
           />
+          {pinned && (pinned.coords[0] !== coords[0] || pinned.coords[1] !== coords[1]) && (
+            <Marker position={pinned.coords}>
+              <Popup>
+                <strong>📍 Pinned: {pinned.location}</strong><br/>
+                Score {pinned.score.toFixed(2)} · LST {pinned.metrics.lst}°C · NDVI {pinned.metrics.ndvi}
+              </Popup>
+            </Marker>
+          )}
           <Marker position={coords}>
             <Popup>
               <strong>Analysis Point</strong><br/>
@@ -849,6 +952,30 @@ const App = () => {
             </Popup>
           </Marker>
         </MapContainer>
+
+        {/* ── Map Style Toggle ──────────────────────────────────── */}
+        <div className="map-style-control">
+          <button
+            className="map-style-btn"
+            onClick={() => setStyleMenuOpen(v => !v)}
+            title="Change map style"
+          >
+            <MapIcon size={14}/> {MAP_STYLES[mapStyle].name}
+          </button>
+          {styleMenuOpen && (
+            <div className="map-style-menu">
+              {Object.entries(MAP_STYLES).map(([key, s]) => (
+                <button
+                  key={key}
+                  className={`map-style-option ${mapStyle === key ? 'active' : ''}`}
+                  onClick={() => { setMapStyle(key); setStyleMenuOpen(false); }}
+                >
+                  {s.name}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
 
         {/* ── Results Panel ─────────────────────────────────────── */}
         <section className="results-panel">
