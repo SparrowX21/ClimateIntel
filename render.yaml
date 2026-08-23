@@ -34,10 +34,7 @@ services:
     staticPublishPath: ./dist
     envVars:
       - key: VITE_API_URL
-        fromService:
-          type: web
-          name: climateintel-api
-          property: host
+        value: https://climateintel-api.onrender.com
     routes:
       - type: rewrite
         source: /*
