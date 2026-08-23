@@ -16,6 +16,10 @@ services:
         sync: false
       - key: GEE_PROJECT_ID
         sync: false
+      - key: GEE_SERVICE_ACCOUNT
+        sync: false
+      - key: GEE_SERVICE_KEY_JSON
+        sync: false
       - key: FRONTEND_ORIGIN
         sync: false
       - key: FLASK_DEBUG

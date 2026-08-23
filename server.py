@@ -101,12 +101,25 @@ def _inc_counter(key, amount=1):
 # ── Earth Engine ─────────────────────────────────────────────────────────────
 
 PROJECT_ID = os.getenv('GEE_PROJECT_ID', 'my-unique-project-id-1234567')
+GEE_SERVICE_ACCOUNT = os.getenv('GEE_SERVICE_ACCOUNT')      # e.g. name@project.iam.gserviceaccount.com
+GEE_SERVICE_KEY_JSON = os.getenv('GEE_SERVICE_KEY_JSON')    # full JSON content (paste in Render)
 ee_initialized = False
 
 try:
-    ee.Initialize(project=PROJECT_ID)
+    if GEE_SERVICE_ACCOUNT and GEE_SERVICE_KEY_JSON:
+        # Server deployment: use service account credentials
+        import tempfile
+        key_path = os.path.join(tempfile.gettempdir(), 'gee_key.json')
+        with open(key_path, 'w') as f:
+            f.write(GEE_SERVICE_KEY_JSON)
+        credentials = ee.ServiceAccountCredentials(GEE_SERVICE_ACCOUNT, key_path)
+        ee.Initialize(credentials, project=PROJECT_ID)
+        print(f"Earth Engine initialized via service account for project: {PROJECT_ID}")
+    else:
+        # Local dev: use cached user credentials (from `earthengine authenticate`)
+        ee.Initialize(project=PROJECT_ID)
+        print(f"Earth Engine initialized via user credentials for project: {PROJECT_ID}")
     ee_initialized = True
-    print(f"Earth Engine initialized with project: {PROJECT_ID}")
 except Exception as e:
     print(f"EE init failed: {e}. Satellite data will use fallback values.")
 
