@@ -470,6 +470,8 @@ const App = () => {
   const [historyLoading, setHistoryLoading] = useState(false);
   const [pinned, setPinned] = useState(null);          // {coords, location, metrics, normalized, score}
   const [shareToast, setShareToast] = useState(null);
+  const [compareMode, setCompareMode] = useState(null); // null | 'awaiting-a' | 'awaiting-b'
+  const compareTriggeredRef = useRef(false);
   const [mapStyle, setMapStyle] = useState(() => localStorage.getItem('ci_map_style') || 'light');
   const [styleMenuOpen, setStyleMenuOpen] = useState(false);
   const [suggestions, setSuggestions] = useState([]);
@@ -554,20 +556,39 @@ const App = () => {
     }
   };
 
-  const pinForCompare = () => {
-    setPinned({
-      coords: [...coords], location, metrics: { ...metrics }, normalized: { ...normMetrics }, score,
-    });
-    setShareToast(`Pinned "${location}" — click another location, then Compare`);
-    setTimeout(() => setShareToast(null), 4000);
+  const startCompareFlow = () => {
+    setPinned(null);
+    setCompareMode('awaiting-a');
+    setShareToast('Compare mode ON — click the first location on the map');
+    setTimeout(() => setShareToast(null), 5000);
   };
 
-  const startCompare = () => {
-    if (!pinned) return;
-    setShowChat(true);
+  const cancelCompare = () => {
+    setCompareMode(null);
+    setPinned(null);
+    setShareToast(null);
   };
 
-  const clearPin = () => setPinned(null);
+  // When metrics finish loading during compare mode, advance the flow
+  useEffect(() => {
+    if (!hasData || loading || aiLoading) return;
+    if (compareMode === 'awaiting-a') {
+      setPinned({
+        coords: [...coords], location, metrics: { ...metrics }, normalized: { ...normMetrics }, score,
+      });
+      setCompareMode('awaiting-b');
+      setShareToast(`Pinned "${location}" — now click a second location to compare`);
+      setTimeout(() => setShareToast(null), 5000);
+    } else if (compareMode === 'awaiting-b' && pinned && (pinned.coords[0] !== coords[0] || pinned.coords[1] !== coords[1]) && !compareTriggeredRef.current) {
+      compareTriggeredRef.current = true;
+      setShareToast(`Comparing "${pinned.location}" vs "${location}"…`);
+      setTimeout(() => setShareToast(null), 3000);
+      setCompareMode(null);
+      setShowChat(true);
+      setTimeout(() => { compareTriggeredRef.current = false; }, 1000);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hasData, loading, aiLoading]);
 
   // ── Search suggestions (debounced) ──────────────────────────────
   const handleLocationInput = (e) => {
@@ -953,6 +974,21 @@ const App = () => {
           </Marker>
         </MapContainer>
 
+        {/* ── Compare Mode Banner ───────────────────────────────── */}
+        {compareMode && (
+          <div className="compare-banner">
+            <GitCompare size={14}/>
+            <div className="compare-banner-text">
+              {compareMode === 'awaiting-a' ? (
+                <><strong>Step 1 of 2:</strong> Click any location on the map to pin as Location A</>
+              ) : (
+                <><strong>Step 2 of 2:</strong> Now click a second location to compare with <em>{pinned?.location}</em></>
+              )}
+            </div>
+            <button className="compare-banner-close" onClick={cancelCompare} title="Cancel compare"><X size={13}/></button>
+          </div>
+        )}
+
         {/* ── Map Style Toggle ──────────────────────────────────── */}
         <div className="map-style-control">
           <button
@@ -1017,27 +1053,10 @@ const App = () => {
                 <button className="action-btn" onClick={shareLocation} title="Copy shareable link">
                   <Share2 size={12}/> Share
                 </button>
-                {!pinned ? (
-                  <button className="action-btn" onClick={pinForCompare} title="Pin this location, then click another to compare">
-                    <Pin size={12}/> Pin to compare
-                  </button>
-                ) : pinned.coords[0] === coords[0] && pinned.coords[1] === coords[1] ? (
-                  <button className="action-btn pinned" onClick={clearPin} title="Unpin">
-                    <Pin size={12}/> Pinned · click to unpin
-                  </button>
-                ) : (
-                  <button className="action-btn compare" onClick={startCompare} title={`Compare with ${pinned.location}`}>
-                    <GitCompare size={12}/> Compare with pinned
-                  </button>
-                )}
+                <button className="action-btn compare" onClick={startCompareFlow} title="Compare this against another location">
+                  <GitCompare size={12}/> Compare two spots
+                </button>
               </div>
-
-              {pinned && pinned.coords[0] !== coords[0] && (
-                <div className="pinned-banner">
-                  📍 Pinned: <strong>{pinned.location}</strong> (score {pinned.score.toFixed(2)})
-                  <button className="pinned-clear" onClick={clearPin}><X size={11}/></button>
-                </div>
-              )}
 
               <div className="context-line">
                 Analyzing <strong>{location}</strong>. Weighting optimized by Gemini AI

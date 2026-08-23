@@ -1054,3 +1054,44 @@ input[type="range"]::-webkit-slider-thumb {
   color: var(--white);
   font-weight: 600;
 }
+
+/* ── Compare mode guided banner ────────────────────── */
+.compare-banner {
+  position: absolute;
+  top: 18px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 550;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  background: var(--text-primary);
+  color: var(--white);
+  font-family: var(--sans);
+  font-size: 12.5px;
+  box-shadow: 0 6px 20px rgba(0,0,0,0.2);
+  max-width: 620px;
+  animation: bannerIn 0.2s ease-out;
+}
+
+@keyframes bannerIn {
+  from { transform: translate(-50%, -10px); opacity: 0; }
+  to   { transform: translate(-50%, 0);      opacity: 1; }
+}
+
+.compare-banner-text { flex: 1; line-height: 1.4; }
+.compare-banner-text em { font-style: normal; font-weight: 600; color: #fbbf24; }
+.compare-banner-text strong { font-weight: 700; margin-right: 4px; }
+
+.compare-banner-close {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  color: rgba(255,255,255,0.7);
+  padding: 4px;
+  display: flex;
+  align-items: center;
+  transition: color 0.15s;
+}
+.compare-banner-close:hover { color: var(--white); }
