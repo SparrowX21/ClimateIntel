@@ -1,9 +1,10 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, useMap, useMapEvents } from 'react-leaflet';
 import {
   MapPin, Info, Zap, RefreshCcw, Activity, Sparkles, Brain,
   Sun, Droplets, Leaf, Building2, Layers, ShieldAlert,
-  BookOpen, X, Database, Cpu, Search, Pause, Play, BarChart3
+  BookOpen, X, Database, Cpu, Search, Pause, Play, BarChart3,
+  MessageSquare, Send
 } from 'lucide-react';
 import 'leaflet/dist/leaflet.css';
 import './App.css';
@@ -249,6 +250,85 @@ function UsagePanel({ usage, onClose }) {
   );
 }
 
+// ── Chat Panel ──────────────────────────────────────────────────────────────
+
+function ChatPanel({ onClose, apiUrl, context }) {
+  const [messages, setMessages] = useState([
+    { role: 'assistant', text: "Hi! I can answer questions about climate, the satellite data shown here, or the current analysis point. What would you like to know?" }
+  ]);
+  const [input, setInput] = useState('');
+  const [sending, setSending] = useState(false);
+  const scrollRef = useRef(null);
+
+  useEffect(() => {
+    if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+  }, [messages, sending]);
+
+  const sendMessage = async (e) => {
+    e.preventDefault();
+    const text = input.trim();
+    if (!text || sending) return;
+    setMessages(m => [...m, { role: 'user', text }]);
+    setInput('');
+    setSending(true);
+    try {
+      const r = await fetch(`${apiUrl}/api/chat`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: text, context }),
+      });
+      const d = await r.json();
+      setMessages(m => [...m, { role: 'assistant', text: d.reply || d.error || 'No response.' }]);
+    } catch (err) {
+      setMessages(m => [...m, { role: 'assistant', text: 'Network error — check that the backend is running.' }]);
+    } finally {
+      setSending(false);
+    }
+  };
+
+  return (
+    <div className="docs-overlay" onClick={(e) => e.target === e.currentTarget && onClose()}>
+      <div className="docs-panel chat-panel">
+        <div className="docs-header">
+          <div>
+            <div className="docs-title">Ask ClimateIntel AI</div>
+            <div className="docs-subtitle">Powered by Gemini · Ask about your analysis</div>
+          </div>
+          <button className="docs-close" onClick={onClose}><X size={16} /></button>
+        </div>
+        <div className="chat-messages" ref={scrollRef}>
+          {messages.map((m, i) => (
+            <div key={i} className={`chat-bubble chat-${m.role}`}>
+              <div className="chat-role">{m.role === 'user' ? 'You' : 'AI'}</div>
+              <div className="chat-text">{m.text}</div>
+            </div>
+          ))}
+          {sending && (
+            <div className="chat-bubble chat-assistant">
+              <div className="chat-role">AI</div>
+              <div className="chat-text chat-typing">Thinking…</div>
+            </div>
+          )}
+        </div>
+        <form className="chat-input-row" onSubmit={sendMessage}>
+          <input
+            className="chat-input"
+            type="text"
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            placeholder="Ask a question…"
+            maxLength={1000}
+            disabled={sending}
+          />
+          <button type="submit" className="chat-send" disabled={sending || !input.trim()}>
+            <Send size={14}/>
+          </button>
+        </form>
+      </div>
+    </div>
+  );
+}
+
 // ── Main App ────────────────────────────────────────────────────────────────
 
 const App = () => {
@@ -268,6 +348,7 @@ const App = () => {
   const [recommendations, setRecommendations] = useState([]);
   const [showDocs, setShowDocs] = useState(false);
   const [showUsage, setShowUsage] = useState(false);
+  const [showChat, setShowChat] = useState(false);
   const [activeModel, setActiveModel] = useState('Gemini Flash');
   const [hasData, setHasData] = useState(false);
   const [paused, setPaused] = useState(false);
@@ -431,6 +512,9 @@ const App = () => {
                 <BarChart3 size={13}/> Usage
               </button>
             </div>
+            <button className="btn-ghost" onClick={() => setShowChat(true)}>
+              <MessageSquare size={13}/> Ask AI
+            </button>
             <div style={{display: 'flex', gap: '6px'}}>
               <button
                 className={paused ? 'btn-primary' : 'btn-ghost'}
@@ -639,6 +723,13 @@ const App = () => {
       {/* ── Modals ──────────────────────────────────────────────── */}
       {showDocs && <DocsModal onClose={() => setShowDocs(false)} activeModel={activeModel} />}
       {showUsage && <UsagePanel usage={usage} onClose={() => setShowUsage(false)} />}
+      {showChat && (
+        <ChatPanel
+          onClose={() => setShowChat(false)}
+          apiUrl={API_URL}
+          context={{ location: { lat: coords[0], lng: coords[1] }, metrics, score }}
+        />
+      )}
     </div>
   );
 };

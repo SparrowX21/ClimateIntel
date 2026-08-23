@@ -411,6 +411,62 @@ def _build_reasoning(lst, precip, ndvi, lc, h, w, e, u):
     )
 
 
+@app.route('/api/chat', methods=['POST'])
+def chat():
+    data = request.get_json(silent=True) or {}
+    message = (data.get('message') or '').strip()
+    context = data.get('context') or {}
+
+    if not message:
+        return jsonify({'error': 'message is required'}), 400
+    if len(message) > 1000:
+        return jsonify({'error': 'message must be under 1000 characters'}), 400
+
+    _inc_counter('ai_calls')
+
+    if not model:
+        return jsonify({
+            'reply': "Chat is unavailable — the Gemini API key isn't configured on the server."
+        })
+
+    try:
+        loc = context.get('location') or {}
+        m = context.get('metrics') or {}
+        score = context.get('score')
+        lc_raw = m.get('landcover')
+        try:
+            lc_label = NLCD_NAMES.get(int(lc_raw), '') if lc_raw not in (None, '', 'N/A') else ''
+        except (ValueError, TypeError):
+            lc_label = ''
+
+        ctx_line = ''
+        if loc.get('lat') is not None and m:
+            ctx_line = (
+                f"Current analysis point: ({loc.get('lat'):.3f}, {loc.get('lng'):.3f}). "
+                f"LST {m.get('lst','?')}°C, NDVI {m.get('ndvi','?')}, "
+                f"Precip {m.get('precipitation','?')}mm/yr, NLCD {m.get('landcover','?')} ({lc_label}). "
+                f"Stress index: {score if score is not None else '?'}.\n\n"
+            )
+
+        prompt = (
+            f"You are ClimateIntel's climate science assistant. Answer concisely (2-4 sentences) "
+            f"in plain language. Only discuss climate, weather, urban planning, ecology, or the "
+            f"platform's data sources. Politely decline off-topic questions.\n\n"
+            f"{ctx_line}"
+            f"User: {message}"
+        )
+
+        response = model.generate_content(prompt)
+        reply = (response.text or '').strip()
+        if not reply:
+            reply = "Sorry — the model returned an empty response. Try rephrasing."
+        return jsonify({'reply': reply})
+
+    except Exception as e:
+        print(f"Chat endpoint error: {e}")
+        return jsonify({'reply': "The AI service is temporarily unavailable. Please try again."}), 200
+
+
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
     debug = os.environ.get('FLASK_DEBUG', '0') == '1'
