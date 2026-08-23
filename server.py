@@ -105,23 +105,32 @@ GEE_SERVICE_ACCOUNT = os.getenv('GEE_SERVICE_ACCOUNT')      # e.g. name@project.
 GEE_SERVICE_KEY_JSON = os.getenv('GEE_SERVICE_KEY_JSON')    # full JSON content (paste in Render)
 ee_initialized = False
 
+print(f"[EE] GEE_PROJECT_ID={PROJECT_ID!r}")
+print(f"[EE] GEE_SERVICE_ACCOUNT={'set' if GEE_SERVICE_ACCOUNT else 'unset'}")
+print(f"[EE] GEE_SERVICE_KEY_JSON={'set (' + str(len(GEE_SERVICE_KEY_JSON)) + ' chars)' if GEE_SERVICE_KEY_JSON else 'unset'}")
+
 try:
     if GEE_SERVICE_ACCOUNT and GEE_SERVICE_KEY_JSON:
-        # Server deployment: use service account credentials
         import tempfile
         key_path = os.path.join(tempfile.gettempdir(), 'gee_key.json')
         with open(key_path, 'w') as f:
             f.write(GEE_SERVICE_KEY_JSON)
         credentials = ee.ServiceAccountCredentials(GEE_SERVICE_ACCOUNT, key_path)
         ee.Initialize(credentials, project=PROJECT_ID)
-        print(f"Earth Engine initialized via service account for project: {PROJECT_ID}")
+        print(f"[EE] Initialized via service account for project: {PROJECT_ID}")
     else:
-        # Local dev: use cached user credentials (from `earthengine authenticate`)
         ee.Initialize(project=PROJECT_ID)
-        print(f"Earth Engine initialized via user credentials for project: {PROJECT_ID}")
+        print(f"[EE] Initialized via user credentials for project: {PROJECT_ID}")
+
+    # Verify by making a test call — some init errors only surface on first use
+    _test = ee.Number(1).add(1).getInfo()
+    print(f"[EE] Test call succeeded ({_test})")
     ee_initialized = True
 except Exception as e:
-    print(f"EE init failed: {e}. Satellite data will use fallback values.")
+    import traceback
+    print(f"[EE] Init failed: {type(e).__name__}: {e}")
+    traceback.print_exc()
+    print("[EE] Satellite data will use fallback values.")
 
 # ── XGBoost Models ───────────────────────────────────────────────────────────
 
