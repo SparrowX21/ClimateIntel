@@ -73,6 +73,15 @@ async function geocodeSuggestions(query, limit = 6) {
 
 // ── Map tile layers ─────────────────────────────────────────────────────────
 
+// Quick-start cities — click to run analysis immediately
+const TRY_CITIES = [
+  { name: 'Vegas',   coords: [36.17, -115.14] },
+  { name: 'Miami',   coords: [25.77,  -80.19] },
+  { name: 'Phoenix', coords: [33.45, -112.07] },
+  { name: 'Seattle', coords: [47.61, -122.33] },
+  { name: 'NYC',     coords: [40.71,  -74.01] },
+];
+
 const MAP_STYLES = {
   light:     { name: 'Light',     url: 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',                    attribution: '&copy; CARTO &copy; OpenStreetMap' },
   streets:   { name: 'Streets',   url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',                                attribution: '&copy; OpenStreetMap contributors' },
@@ -472,6 +481,7 @@ const App = () => {
   const [shareToast, setShareToast] = useState(null);
   const [compareMode, setCompareMode] = useState(null); // null | 'awaiting-a' | 'awaiting-b'
   const compareTriggeredRef = useRef(false);
+  const [sidebarOpen, setSidebarOpen] = useState(false); // mobile only
   const [mapStyle, setMapStyle] = useState(() => localStorage.getItem('ci_map_style') || 'light');
   const [styleMenuOpen, setStyleMenuOpen] = useState(false);
   const [suggestions, setSuggestions] = useState([]);
@@ -561,6 +571,13 @@ const App = () => {
     setCompareMode('awaiting-a');
     setShareToast('Compare mode ON — click the first location on the map');
     setTimeout(() => setShareToast(null), 5000);
+  };
+
+  const jumpToCity = (city) => {
+    setCoords(city.coords);
+    setLocation(city.name);
+    fetchMetrics(city.coords[0], city.coords[1]);
+    setSidebarOpen(false); // close mobile drawer if open
   };
 
   const cancelCompare = () => {
@@ -762,7 +779,13 @@ const App = () => {
   const status = getStatusInfo(score);
 
   return (
-    <div className="app-container">
+    <div className={`app-container ${sidebarOpen ? 'sidebar-open' : ''}`}>
+      {/* Mobile hamburger — only visible on <768px */}
+      <button className="mobile-toggle" onClick={() => setSidebarOpen(o => !o)} aria-label="Toggle menu">
+        {sidebarOpen ? <X size={18}/> : <MapIcon size={18}/>}
+      </button>
+      {sidebarOpen && <div className="mobile-backdrop" onClick={() => setSidebarOpen(false)}/>}
+
       {/* ── Sidebar ─────────────────────────────────────────────── */}
       <aside className="sidebar">
         <div className="sidebar-header">
@@ -1016,15 +1039,31 @@ const App = () => {
         {/* ── Results Panel ─────────────────────────────────────── */}
         <section className="results-panel">
           {!hasData && !loading ? (
-            <div className="loading-state">
-              <Activity size={32} color="#444" style={{marginBottom:12}} />
-              <p style={{fontSize:'13px',fontWeight:600}}>Ready for Analysis</p>
-              <p style={{color:'var(--text-muted)',fontSize:'11px'}}>Select a location on the map or search any place to begin.</p>
+            <div className="quickstart">
+              <div className="quickstart-title">Ready for Analysis</div>
+              <div className="quickstart-hint">Click any US location on the map, search a place, or try one:</div>
+              <div className="quickstart-chips">
+                {TRY_CITIES.map(c => (
+                  <button key={c.name} className="quickstart-chip" onClick={() => jumpToCity(c)}>
+                    {c.name}
+                  </button>
+                ))}
+              </div>
+              <div className="quickstart-footnote">
+                4 ML models · live satellite data · ~10 sec per analysis
+              </div>
             </div>
           ) : loading ? (
-            <div className="loading-state">
-              <RefreshCcw className="animate-spin" size={28} color="#888"/>
-              <p>Fetching satellite data...</p>
+            <div className="skeleton-block">
+              <div className="sk-score"/>
+              <div className="sk-bar"/>
+              <div className="sk-line" style={{width: '70%'}}/>
+              <div className="sk-line" style={{width: '90%'}}/>
+              <div className="sk-line" style={{width: '55%', marginBottom: 16}}/>
+              <div className="sk-card"/>
+              <div className="sk-card"/>
+              <div className="sk-card"/>
+              <div className="sk-hint">Fetching satellite data + running 4 ML models…</div>
             </div>
           ) : error ? (
             <div className="error-state">

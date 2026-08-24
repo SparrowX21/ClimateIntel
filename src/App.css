@@ -1095,3 +1095,145 @@ input[type="range"]::-webkit-slider-thumb {
   transition: color 0.15s;
 }
 .compare-banner-close:hover { color: var(--white); }
+
+/* ── Quick-start empty state ──────────────────────── */
+.quickstart {
+  padding: 24px 4px;
+  text-align: center;
+}
+.quickstart-title {
+  font-family: var(--condensed);
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  color: var(--text-primary);
+  margin-bottom: 8px;
+}
+.quickstart-hint {
+  font-size: 11.5px;
+  color: var(--text-secondary);
+  margin-bottom: 16px;
+  line-height: 1.5;
+}
+.quickstart-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  justify-content: center;
+  margin-bottom: 20px;
+}
+.quickstart-chip {
+  padding: 7px 14px;
+  background: var(--text-primary);
+  color: var(--white);
+  border: 1px solid var(--text-primary);
+  font-family: var(--condensed);
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.quickstart-chip:hover {
+  background: var(--text-secondary);
+  transform: translateY(-1px);
+}
+.quickstart-footnote {
+  font-family: var(--mono);
+  font-size: 9.5px;
+  color: var(--text-muted);
+  letter-spacing: 0.4px;
+}
+
+/* ── Loading skeleton ─────────────────────────────── */
+.skeleton-block { padding: 4px; }
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+.sk-score, .sk-bar, .sk-line, .sk-card {
+  background: linear-gradient(90deg, #e5e7eb 0%, #f3f4f6 50%, #e5e7eb 100%);
+  background-size: 200% 100%;
+  animation: shimmer 1.4s ease-in-out infinite;
+  border-radius: 2px;
+}
+.sk-score { height: 80px; margin-bottom: 16px; }
+.sk-bar   { height: 4px;  margin-bottom: 16px; }
+.sk-line  { height: 12px; margin-bottom: 8px; }
+.sk-card  { height: 68px; margin-bottom: 10px; }
+.sk-hint {
+  text-align: center;
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-top: 12px;
+}
+
+/* ── Mobile responsive ────────────────────────────── */
+.mobile-toggle {
+  display: none;
+  position: fixed;
+  top: 14px;
+  left: 14px;
+  z-index: 3500;
+  width: 42px;
+  height: 42px;
+  border-radius: 0;
+  border: 1px solid var(--border-strong);
+  background: var(--white);
+  color: var(--text-primary);
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.12);
+}
+.mobile-backdrop {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.4);
+  z-index: 1400;
+  animation: fadeIn 0.2s ease;
+}
+
+@media (max-width: 768px) {
+  .mobile-toggle { display: flex; }
+  .mobile-backdrop { display: block; }
+  .app-container:not(.sidebar-open) .mobile-backdrop { display: none; }
+
+  .sidebar {
+    position: fixed;
+    top: 0; left: 0;
+    height: 100vh;
+    width: 90vw;
+    max-width: 360px;
+    transform: translateX(-100%);
+    transition: transform 0.25s cubic-bezier(0.16,1,0.3,1);
+    z-index: 1500;
+    box-shadow: 4px 0 20px rgba(0,0,0,0.15);
+  }
+  .app-container.sidebar-open .sidebar { transform: translateX(0); }
+
+  .map-view { width: 100vw; }
+  .results-panel {
+    top: auto;
+    bottom: 0;
+    right: 0;
+    left: 0;
+    width: 100%;
+    max-height: 55vh;
+    border-left: none;
+    border-top: 1px solid var(--border);
+  }
+  .map-style-control { left: 14px; top: 66px; }
+  .compare-banner {
+    left: 14px; right: 14px; top: 66px;
+    transform: none;
+    max-width: none;
+  }
+  @keyframes bannerIn {
+    from { transform: translateY(-10px); opacity: 0; }
+    to   { transform: translateY(0);      opacity: 1; }
+  }
+}
