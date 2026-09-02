@@ -3,25 +3,81 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>ClimateIntel — ML-driven US Climate Stress Index</title>
-    <meta name="description" content="Real-time climate stress analysis for any US location. Four independent XGBoost models score heat, water, ecological, and urban stress from live satellite data." />
+    <meta name="theme-color" content="#ffffff" />
+
+    <title>ClimateIntel — Climate Stress Score for Any US Location</title>
+    <meta name="description" content="Click any US location for an instant climate stress score. Four machine-learning models scoring heat, water, ecological, and urban stress from live satellite data. Free, no signup required." />
+    <meta name="keywords" content="climate risk map, US climate stress, urban heat island, drought risk, climate change tool, urban planning, satellite data, MODIS, XGBoost, machine learning climate, heat index, water stress, environmental risk score" />
+    <meta name="author" content="ClimateIntel" />
+    <meta name="robots" content="index, follow, max-image-preview:large" />
+    <meta name="googlebot" content="index, follow" />
+
+    <link rel="canonical" href="https://climateintel-web.onrender.com/" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
 
     <!-- Open Graph / Twitter card for link previews -->
     <meta property="og:type" content="website" />
-    <meta property="og:title" content="ClimateIntel — ML-driven US Climate Stress Index" />
-    <meta property="og:description" content="Click any US location. Four ML models score heat, water, ecological, and urban stress from live satellite data." />
+    <meta property="og:site_name" content="ClimateIntel" />
+    <meta property="og:title" content="ClimateIntel — Climate Stress Score for Any US Location" />
+    <meta property="og:description" content="Click any US location for an instant climate stress score. Four ML models on live satellite data." />
     <meta property="og:image" content="https://climateintel-web.onrender.com/og.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
     <meta property="og:url" content="https://climateintel-web.onrender.com" />
+    <meta property="og:locale" content="en_US" />
+
     <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content="ClimateIntel — ML-driven US Climate Stress Index" />
-    <meta name="twitter:description" content="Click any US location. Four ML models score heat, water, ecological, and urban stress from live satellite data." />
+    <meta name="twitter:title" content="ClimateIntel — Climate Stress Score for Any US Location" />
+    <meta name="twitter:description" content="Click any US location for an instant climate stress score. Four ML models on live satellite data." />
     <meta name="twitter:image" content="https://climateintel-web.onrender.com/og.png" />
+
+    <!-- Structured data: WebApplication -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "WebApplication",
+      "name": "ClimateIntel",
+      "description": "Real-time climate stress analysis for any US location using satellite data and machine learning. Scores heat, water, ecological, and urban stress on a 0-1 scale.",
+      "url": "https://climateintel-web.onrender.com",
+      "applicationCategory": "Environmental Application",
+      "operatingSystem": "Any (Web Browser)",
+      "browserRequirements": "Requires JavaScript. Requires HTML5.",
+      "offers": {
+        "@type": "Offer",
+        "price": "0",
+        "priceCurrency": "USD"
+      },
+      "featureList": [
+        "4 XGBoost machine learning models for climate stress scoring",
+        "Live satellite data from Google Earth Engine (MODIS, TerraClimate, NLCD)",
+        "Gemini AI weight optimization and policy recommendations",
+        "Side-by-side location comparison",
+        "Worldwide geocoding search",
+        "Multiple map styles (Light, Satellite, Terrain, Streets, Dark)"
+      ],
+      "screenshot": "https://climateintel-web.onrender.com/og.png",
+      "creator": {
+        "@type": "Organization",
+        "name": "ClimateIntel"
+      }
+    }
+    </script>
 
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
   </head>
   <body>
-    <div id="root"></div>
+    <!-- SEO fallback content: search engines see this if JS fails to render -->
+    <noscript>
+      <div style="max-width: 720px; margin: 60px auto; padding: 24px; font-family: system-ui, sans-serif; line-height: 1.6;">
+        <h1>ClimateIntel — Climate Stress Score for Any US Location</h1>
+        <p>ClimateIntel is a free, real-time climate risk analysis tool for the contiguous United States. Click any US location and get a 0-1 climate stress score across four independent dimensions: heat, water, ecological, and urban density stress.</p>
+        <p>Each dimension is scored by its own XGBoost machine learning model trained on 5,707 CONUS-wide samples of MODIS satellite data (land surface temperature, vegetation index), TerraClimate precipitation and vapor pressure deficit, USGS NLCD landcover, and gridded population density. A Gemini AI layer then interprets the raw satellite readings and generates location-specific policy recommendations.</p>
+        <p>This app requires JavaScript to run. Please enable JavaScript in your browser.</p>
+      </div>
+    </noscript>
+    <div id="root">
+      <h1 style="position: absolute; left: -9999px;">ClimateIntel — Climate Stress Score for Any US Location</h1>
+    </div>
     <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>
