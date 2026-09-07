@@ -83,11 +83,11 @@ const TRY_CITIES = [
 ];
 
 const MAP_STYLES = {
-  light:     { name: 'Light',     url: 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',                    attribution: '&copy; CARTO &copy; OpenStreetMap' },
-  streets:   { name: 'Streets',   url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',                                attribution: '&copy; OpenStreetMap contributors' },
-  satellite: { name: 'Satellite', url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', attribution: 'Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX' },
-  terrain:   { name: 'Terrain',   url: 'https://tile.opentopomap.org/{z}/{x}/{y}.png',                                     attribution: 'Map data: &copy; OpenStreetMap, SRTM | Style: &copy; OpenTopoMap (CC-BY-SA)' },
-  dark:      { name: 'Dark',      url: 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',                     attribution: '&copy; CARTO &copy; OpenStreetMap' },
+  light:     { name: 'Light',     url: 'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}', attribution: 'Tiles &copy; Esri' },
+  streets:   { name: 'Streets',   url: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',                                                              attribution: '&copy; OpenStreetMap contributors' },
+  satellite: { name: 'Satellite', url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',               attribution: 'Tiles &copy; Esri, Maxar, Earthstar Geographics' },
+  terrain:   { name: 'Terrain',   url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}',              attribution: 'Tiles &copy; Esri' },
+  dark:      { name: 'Dark',      url: 'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}',  attribution: 'Tiles &copy; Esri' },
 };
 
 // ── Documentation Modal ─────────────────────────────────────────────────────
